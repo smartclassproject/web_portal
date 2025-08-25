@@ -1,0 +1,31 @@
+
+@import "tailwindcss";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+@theme {
+  --bg-primary: #43A047;
+  --bg-secondary: #64B5F6;
+  --bg-neutral: #E0E0E0;
+  --bg-success: #4CAF50;
+  --bg-error: #F44336;
+}
+
+/* Custom animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out;
+}
