@@ -170,3 +170,58 @@ export interface AuthContextType {
   logout: () => void;
   isLoading: boolean;
 } 
+
+
+
+export interface WeeklySession {
+  day: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface Schedule {
+  _id: string;
+  courseId: Course | string;
+  schoolId: string;
+  classroom: string;
+  teacherId: Teacher | string;
+  startDate: string;
+  endDate: string;
+  weeklySessions: WeeklySession[];
+  maxStudents?: number;
+  currentStudents?: number;
+  isActive?: boolean;
+  isCurrentlyActive?: boolean;
+  availableSeats?: number;
+  attendanceCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateScheduleData {
+  courseId: string;
+  teacherId: string;
+  classroom: string;
+  startDate: string;
+  endDate: string;
+  weeklySessions: WeeklySession[];
+  maxStudents?: number;
+}
+
+export interface UpdateScheduleData {
+  courseId?: string;
+  teacherId?: string;
+  classroom?: string;
+  startDate?: string;
+  endDate?: string;
+  weeklySessions?: WeeklySession[];
+  maxStudents?: number;
+}
+
+export interface ScheduleResponse {
+  data: Schedule[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}

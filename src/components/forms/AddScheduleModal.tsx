@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
+import type { Course, CreateScheduleData, Teacher, WeeklySession } from '../../types';
+// import { WeeklySession, CreateScheduleData } from '../../services/scheduleService';
 
 interface AddScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (scheduleData: any) => void;
-  courses: Array<{ id: string; name: string }>;
-  teachers: Array<{ id: string; name: string }>;
+  onSubmit: (scheduleData: CreateScheduleData) => void;
+  courses: Course[];
+  teachers: Teacher[];
   initialData?: {
     courseId?: string;
     classroom?: string;
     teacherId?: string;
-    day?: string;
-    startTime?: string;
-    endTime?: string;
+    startDate?: string;
+    endDate?: string;
+    weeklySessions?: WeeklySession[];
+    maxStudents?: number;
   };
   title?: string;
   submitButtonText?: string;
@@ -33,11 +36,17 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
     courseId: initialData?.courseId || '',
     classroom: initialData?.classroom || '',
     teacherId: initialData?.teacherId || '',
-    day: initialData?.day || '',
-    startTime: initialData?.startTime || '',
-    endTime: initialData?.endTime || '',
+    startDate: initialData?.startDate || '',
+    endDate: initialData?.endDate || '',
+    maxStudents: initialData?.maxStudents || 30,
   });
+  
+  const [weeklySessions, setWeeklySessions] = useState<WeeklySession[]>(
+    initialData?.weeklySessions || [{ day: 'Monday', startTime: '09:00', endTime: '10:30' }]
+  );
+  
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [sessionErrors, setSessionErrors] = useState<Record<number, Record<string, string>>>({});
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -48,10 +57,11 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
         courseId: initialData.courseId || '',
         classroom: initialData.classroom || '',
         teacherId: initialData.teacherId || '',
-        day: initialData.day || '',
-        startTime: initialData.startTime || '',
-        endTime: initialData.endTime || '',
+        startDate: initialData.startDate || '',
+        endDate: initialData.endDate || '',
+        maxStudents: initialData.maxStudents || 30,
       });
+      setWeeklySessions(initialData.weeklySessions || [{ day: 'Monday', startTime: '09:00', endTime: '10:30' }]);
     }
   }, [initialData]);
 
@@ -64,8 +74,39 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
     }
   };
 
+  const handleSessionChange = (index: number, field: keyof WeeklySession, value: string) => {
+    const updatedSessions = [...weeklySessions];
+    updatedSessions[index] = { ...updatedSessions[index], [field]: value };
+    setWeeklySessions(updatedSessions);
+    
+    // Clear session error when user starts typing
+    if (sessionErrors[index]?.[field]) {
+      setSessionErrors(prev => ({
+        ...prev,
+        [index]: { ...prev[index], [field]: '' }
+      }));
+    }
+  };
+
+  const addWeeklySession = () => {
+    setWeeklySessions([...weeklySessions, { day: 'Monday', startTime: '09:00', endTime: '10:30' }]);
+  };
+
+  const removeWeeklySession = (index: number) => {
+    if (weeklySessions.length > 1) {
+      const updatedSessions = weeklySessions.filter((_, i) => i !== index);
+      setWeeklySessions(updatedSessions);
+      
+      // Remove session errors for deleted session
+      const updatedErrors = { ...sessionErrors };
+      delete updatedErrors[index];
+      setSessionErrors(updatedErrors);
+    }
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
+    const newSessionErrors: Record<number, Record<string, string>> = {};
 
     if (!formData.courseId) {
       newErrors.courseId = 'Course is required';
@@ -79,53 +120,91 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
       newErrors.teacherId = 'Teacher is required';
     }
 
-    if (!formData.day) {
-      newErrors.day = 'Day is required';
+    if (!formData.startDate) {
+      newErrors.startDate = 'Start date is required';
     }
 
-    if (!formData.startTime) {
-      newErrors.startTime = 'Start time is required';
-    }
-
-    if (!formData.endTime) {
-      newErrors.endTime = 'End time is required';
-    } else if (formData.startTime && formData.endTime) {
-      const start = new Date(`2000-01-01T${formData.startTime}`);
-      const end = new Date(`2000-01-01T${formData.endTime}`);
+    if (!formData.endDate) {
+      newErrors.endDate = 'End date is required';
+    } else if (formData.startDate && formData.endDate) {
+      const start = new Date(formData.startDate);
+      const end = new Date(formData.endDate);
       if (end <= start) {
-        newErrors.endTime = 'End time must be after start time';
+        newErrors.endDate = 'End date must be after start date';
       }
     }
 
+    if (formData.maxStudents && formData.maxStudents <= 0) {
+      newErrors.maxStudents = 'Max students must be greater than 0';
+    }
+
+    // Validate weekly sessions
+    weeklySessions.forEach((session, index) => {
+      const sessionError: Record<string, string> = {};
+      
+      if (!session.day) {
+        sessionError.day = 'Day is required';
+      }
+
+      if (!session.startTime) {
+        sessionError.startTime = 'Start time is required';
+      }
+
+      if (!session.endTime) {
+        sessionError.endTime = 'End time is required';
+      } else if (session.startTime && session.endTime) {
+        const start = new Date(`2000-01-01T${session.startTime}`);
+        const end = new Date(`2000-01-01T${session.endTime}`);
+        if (end <= start) {
+          sessionError.endTime = 'End time must be after start time';
+        }
+      }
+
+      if (Object.keys(sessionError).length > 0) {
+        newSessionErrors[index] = sessionError;
+      }
+    });
+
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setSessionErrors(newSessionErrors);
+    
+    return Object.keys(newErrors).length === 0 && Object.keys(newSessionErrors).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (validateForm()) {
-      onSubmit({
-        ...formData,
-        createdAt: new Date().toISOString(),
-      });
+      const scheduleData: CreateScheduleData = {
+        courseId: formData.courseId,
+        classroom: formData.classroom,
+        teacherId: formData.teacherId,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        weeklySessions: weeklySessions,
+        maxStudents: formData.maxStudents,
+      };
+      
+      onSubmit(scheduleData);
       
       // Reset form
       setFormData({
         courseId: '',
         classroom: '',
         teacherId: '',
-        day: '',
-        startTime: '',
-        endTime: '',
+        startDate: '',
+        endDate: '',
+        maxStudents: 30,
       });
+      setWeeklySessions([{ day: 'Monday', startTime: '09:00', endTime: '10:30' }]);
       setErrors({});
+      setSessionErrors({});
       onClose();
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={title} size="xl">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Course */}
@@ -144,7 +223,7 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
             >
               <option value="">Select a course</option>
               {courses.map(course => (
-                <option key={course.id} value={course.id}>
+                <option key={course._id} value={course._id}>
                   {course.name}
                 </option>
               ))}
@@ -187,7 +266,7 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
             >
               <option value="">Select a teacher</option>
               {teachers.map(teacher => (
-                <option key={teacher.id} value={teacher.id}>
+                <option key={teacher._id} value={teacher._id}>
                   {teacher.name}
                 </option>
               ))}
@@ -195,64 +274,146 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
             {errors.teacherId && <p className="mt-1 text-sm text-red-600">{errors.teacherId}</p>}
           </div>
 
-          {/* Day */}
+          {/* Max Students */}
           <div>
-            <label htmlFor="day" className="block text-sm font-medium text-gray-700 mb-2">
-              Day *
+            <label htmlFor="maxStudents" className="block text-sm font-medium text-gray-700 mb-2">
+              Max Students
             </label>
-            <select
-              id="day"
-              name="day"
-              value={formData.day}
+            <input
+              type="number"
+              id="maxStudents"
+              name="maxStudents"
+              value={formData.maxStudents}
+              onChange={handleChange}
+              min="1"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.maxStudents ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="30"
+            />
+            {errors.maxStudents && <p className="mt-1 text-sm text-red-600">{errors.maxStudents}</p>}
+          </div>
+
+          {/* Start Date */}
+          <div>
+            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
+              Start Date *
+            </label>
+            <input
+              type="date"
+              id="startDate"
+              name="startDate"
+              value={formData.startDate}
               onChange={handleChange}
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.day ? 'border-red-500' : 'border-gray-300'
+                errors.startDate ? 'border-red-500' : 'border-gray-300'
               }`}
+            />
+            {errors.startDate && <p className="mt-1 text-sm text-red-600">{errors.startDate}</p>}
+          </div>
+
+          {/* End Date */}
+          <div>
+            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">
+              End Date *
+            </label>
+            <input
+              type="date"
+              id="endDate"
+              name="endDate"
+              value={formData.endDate}
+              onChange={handleChange}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.endDate ? 'border-red-500' : 'border-gray-300'
+              }`}
+            />
+            {errors.endDate && <p className="mt-1 text-sm text-red-600">{errors.endDate}</p>}
+          </div>
+        </div>
+
+        {/* Weekly Sessions */}
+        <div className="border-t border-gray-200 pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Weekly Sessions</h3>
+            <button
+              type="button"
+              onClick={addWeeklySession}
+              className="px-3 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm font-medium transition-colors"
             >
-              <option value="">Select a day</option>
-              {days.map(day => (
-                <option key={day} value={day}>
-                  {day}
-                </option>
-              ))}
-            </select>
-            {errors.day && <p className="mt-1 text-sm text-red-600">{errors.day}</p>}
+              + Add Session
+            </button>
           </div>
+          
+          <div className="space-y-4">
+            {weeklySessions.map((session, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-gray-700">Session {index + 1}</h4>
+                  {weeklySessions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeWeeklySession(index)}
+                      className="text-red-500 hover:text-red-700 text-sm"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Day */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Day *</label>
+                    <select
+                      value={session.day}
+                      onChange={(e) => handleSessionChange(index, 'day', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        sessionErrors[index]?.day ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    >
+                      {days.map(day => (
+                        <option key={day} value={day}>{day}</option>
+                      ))}
+                    </select>
+                    {sessionErrors[index]?.day && (
+                      <p className="mt-1 text-sm text-red-600">{sessionErrors[index].day}</p>
+                    )}
+                  </div>
 
-          {/* Start Time */}
-          <div>
-            <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 mb-2">
-              Start Time *
-            </label>
-            <input
-              type="time"
-              id="startTime"
-              name="startTime"
-              value={formData.startTime}
-              onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.startTime ? 'border-red-500' : 'border-gray-300'
-              }`}
-            />
-            {errors.startTime && <p className="mt-1 text-sm text-red-600">{errors.startTime}</p>}
-          </div>
+                  {/* Start Time */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Time *</label>
+                    <input
+                      type="time"
+                      value={session.startTime}
+                      onChange={(e) => handleSessionChange(index, 'startTime', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        sessionErrors[index]?.startTime ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                    {sessionErrors[index]?.startTime && (
+                      <p className="mt-1 text-sm text-red-600">{sessionErrors[index].startTime}</p>
+                    )}
+                  </div>
 
-          {/* End Time */}
-          <div>
-            <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 mb-2">
-              End Time *
-            </label>
-            <input
-              type="time"
-              id="endTime"
-              name="endTime"
-              value={formData.endTime}
-              onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.endTime ? 'border-red-500' : 'border-gray-300'
-              }`}
-            />
-            {errors.endTime && <p className="mt-1 text-sm text-red-600">{errors.endTime}</p>}
+                  {/* End Time */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Time *</label>
+                    <input
+                      type="time"
+                      value={session.endTime}
+                      onChange={(e) => handleSessionChange(index, 'endTime', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        sessionErrors[index]?.endTime ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                    {sessionErrors[index]?.endTime && (
+                      <p className="mt-1 text-sm text-red-600">{sessionErrors[index].endTime}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
