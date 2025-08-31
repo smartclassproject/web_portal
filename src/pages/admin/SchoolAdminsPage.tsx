@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+
 const SchoolAdminsPage: React.FC = () => {
   const { user: currentUser } = useAuth();
   const [admins, setAdmins] = useState<AdminUser[]>([]);
