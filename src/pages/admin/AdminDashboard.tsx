@@ -6,40 +6,7 @@ import { getSchoolAdmins } from '../../services/adminService';
 import { getDevices } from '../../services/deviceService';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import type { School, AdminUser, Device } from '../../types';
-
-const stats = [
-  {
-    title: 'Total Schools',
-    value: 12,
-    icon: (
-      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-      </svg>
-    ),
-    gradient: 'from-green-500 to-green-700',
-  },
-  {
-    title: 'Total Students',
-    value: 2847,
-    icon: (
-      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-      </svg>
-    ),
-    gradient: 'from-blue-400 to-blue-600',
-  },
-  {
-    title: 'Active Devices',
-    value: 89,
-    icon: (
-      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-      </svg>
-    ),
-    gradient: 'from-purple-400 to-purple-600',
-  },
-];
+import type { School, Device, StatCard } from '../../types';
 
 const attendanceData = [
   { day: 'Mon', attendance: 92 },
@@ -49,13 +16,7 @@ const attendanceData = [
   { day: 'Fri', attendance: 91 },
 ];
 
-const recentSchools = [
-  { id: '1', name: 'Rwanda Coding Academy', location: 'Nyabihu', students: 245, status: 'Active' },
-  { id: '2', name: 'Ecole de Science de Musanze ', location: 'Musanze', students: 520, status: 'Active' },
-  { id: '3', name: 'Fawe Girls School', location: 'Kigali', students: 312, status: 'Active' },
-];
-
-const StatCard = ({ title, value, icon, gradient }: any) => (
+const StatCard = ({ title, value, icon, gradient }: StatCard) => (
   <div className={`flex-1 min-w-[180px] bg-gradient-to-tr ${gradient} rounded-xl shadow-md p-5 flex items-center gap-4`}> 
     <div className="bg-white/20 rounded-lg p-3 flex items-center justify-center">{icon}</div>
     <div>
@@ -67,7 +28,7 @@ const StatCard = ({ title, value, icon, gradient }: any) => (
 
 const AdminDashboard: React.FC = () => {
   const [schools, setSchools] = useState<School[]>([]);
-  const [admins, setAdmins] = useState<AdminUser[]>([]);
+  // const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,14 +39,13 @@ const AdminDashboard: React.FC = () => {
       setError(null);
       try {
         // Fetch schools, admins, and devices in parallel
-        const [schoolsResponse, adminsResponse, devicesResponse] = await Promise.all([
+        const [schoolsResponse, devicesResponse] = await Promise.all([
           getSchools(),
           getSchoolAdmins(1, 100), // Get all admins for stats
           getDevices(1, 1000) // Get all devices for stats
         ]);
 
         setSchools(schoolsResponse.data || []);
-        setAdmins(adminsResponse.data || []);
         setDevices(devicesResponse.data || []);
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
@@ -227,7 +187,7 @@ const AdminDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {recentSchools.map((school, idx) => (
+                {recentSchools.map((school) => (
                   <tr
                     key={school.id}
                     className="group border-b last:border-b-0 border-gray-100 hover:bg-blue-50 transition"

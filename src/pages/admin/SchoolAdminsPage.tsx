@@ -1,10 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Modal from '../../components/ui/Modal';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { FaEdit, FaTrash, FaEllipsisH } from 'react-icons/fa';
 import { getSchoolAdmins, createAdmin, updateAdmin, deleteAdmin, resendSetupEmail, createPasswordForAdmin } from '../../services/adminService';
 import { getSchools } from '../../services/schoolService';
 import type { AdminUser, AdminUserView, School } from '../../types';
@@ -103,6 +103,7 @@ const SchoolAdminsPage: React.FC = () => {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (errors[name]) setErrors((prev: any) => ({ ...prev, [name]: '' }));
   };
 
@@ -382,7 +383,6 @@ const SchoolAdminsPage: React.FC = () => {
     doc.setFontSize(12);
     doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
 
-    // @ts-ignore
     (doc as any).autoTable({
       head: [['Email', 'Name', 'Phone', 'Role', 'Activated', 'Status', 'Last Login']],
       body: filteredAdmins.map(admin => [

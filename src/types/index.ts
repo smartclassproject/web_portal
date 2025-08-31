@@ -1,9 +1,18 @@
+import type { ReactNode } from "react";
+
 // Database Schema Types
 export interface School {
   _id: string;
   name: string;
   location: string;
   createdAt: string;
+}
+
+export interface StatCard {
+  title: string;
+  value: number;
+  icon: ReactNode;
+  gradient: string;
 }
 
 export interface AdminUser {
@@ -15,7 +24,7 @@ export interface AdminUser {
   passwordSetup?: boolean;
   name?: string;
   phone?: string;
-  role: 'super_admin' | 'school_admin';
+  role: "super_admin" | "school_admin";
   schoolId?: string | School;
   isActive: boolean;
   lastLogin?: string;
@@ -31,8 +40,8 @@ export interface AdminUserView {
   lastName?: string;
   name?: string;
   phone?: string;
-  status: 'active' | 'inactive';
-  role: 'super_admin' | 'school_admin';
+  status: "active" | "inactive";
+  role: "super_admin" | "school_admin";
   schoolId?: School;
   isActive: boolean;
   lastLogin?: string;
@@ -113,10 +122,17 @@ export interface Attendance {
   deviceId: string;
   classroom: string;
   checkInTime: string;
-  status: 'Present' | 'Absent' | 'Late';
+  status: "Present" | "Absent" | "Late";
   notes?: string;
   sessionDate: string;
-  sessionDay: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+  sessionDay:
+    | "Monday"
+    | "Tuesday"
+    | "Wednesday"
+    | "Thursday"
+    | "Friday"
+    | "Saturday"
+    | "Sunday";
   sessionStartTime?: string;
   sessionEndTime?: string;
   cardId?: string;
@@ -141,7 +157,7 @@ export interface Device {
   firmwareVersion?: string;
   lastMaintenance?: string;
   nextMaintenance?: string;
-  status: 'Operational' | 'Maintenance' | 'Offline' | 'Error';
+  status: "Operational" | "Maintenance" | "Offline" | "Error";
   batteryLevel: number;
   signalStrength?: number;
   lastSeen: string;
@@ -154,7 +170,7 @@ export interface Device {
 export interface User {
   id: string;
   email: string;
-  role: 'super_admin' | 'school_admin';
+  role: "super_admin" | "school_admin";
   schoolId?: string;
   name: string;
 }
@@ -169,9 +185,7 @@ export interface AuthContextType {
   login: (credentials: LoginCredentials) => Promise<User>;
   logout: () => void;
   isLoading: boolean;
-} 
-
-
+}
 
 export interface WeeklySession {
   day: string;

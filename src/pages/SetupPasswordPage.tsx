@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { setupPassword } from '../services/authService';
@@ -19,7 +20,8 @@ const SetupPasswordPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<SetupPasswordData>>({});
   const [token, setToken] = useState<string>('');
-  const [userInfo, setUserInfo] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // const [userInfo, setUserInfo] = useState<unknown>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -85,7 +87,7 @@ const SetupPasswordPage: React.FC = () => {
       // Store user info
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
-        setUserInfo(data.user);
+        // setUserInfo(data.user);
       }
 
       // Redirect based on role

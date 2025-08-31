@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Modal from '../../components/ui/Modal';
@@ -13,7 +14,8 @@ const DevicesPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  // const [limit, setLimit] = useState(10);
+  const limit = 10;
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -114,16 +116,6 @@ const DevicesPage: React.FC = () => {
     }
   };
 
-  const getBatteryColor = (level: number) => {
-    if (level >= 80) return 'text-green-600';
-    if (level >= 50) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  const getActiveStatusColor = (isActive: boolean) => {
-    return isActive ? 'text-green-600' : 'text-red-600';
-  };
-
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString();
   };
@@ -217,6 +209,7 @@ const DevicesPage: React.FC = () => {
         });
         setErrors({});
         setIsAddOpen(false);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         setError('Failed to create RFID device');
         toast.error('Failed to create RFID device');
@@ -286,6 +279,7 @@ const DevicesPage: React.FC = () => {
           notes: ''
         });
         setErrors({});
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         setError('Failed to update RFID device');
         toast.error('Failed to update RFID device');
@@ -316,6 +310,7 @@ const DevicesPage: React.FC = () => {
       
       setIsDeleteOpen(false);
       setSelectedDevice(null);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       setError('Failed to delete RFID device');
       toast.error('Failed to delete RFID device');
