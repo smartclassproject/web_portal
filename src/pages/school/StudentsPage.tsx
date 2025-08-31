@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -60,6 +61,7 @@ const StudentsPage: React.FC = () => {
       const response = await getSchoolMajors();
       setMajors(response.data || []);
     } catch (err: any) {
+      console.error(err);
       toast.error('Failed to fetch majors');
     } finally {
       setMajorsLoading(false);
@@ -69,6 +71,8 @@ const StudentsPage: React.FC = () => {
   useEffect(() => {
     fetchStudents();
     fetchMajors();
+    console.log("majorsLoading", majorsLoading);
+    
   }, [user?.schoolId, page]);
 
   const handleAddStudent = async (studentData: { 
@@ -133,6 +137,7 @@ const StudentsPage: React.FC = () => {
       setIsEditModalOpen(false);
       setSelectedStudent(null);
     } catch (err) {
+      console.log("Failed to update student", err);
       toast.error('Failed to update student');
     } finally {
       setEditLoading(false);
@@ -149,6 +154,7 @@ const StudentsPage: React.FC = () => {
       setIsDeleteModalOpen(false);
       setSelectedStudent(null);
     } catch (err) {
+      console.log("Failed to delete student", err);
       toast.error('Failed to delete student');
     } finally {
       setDeleteLoading(false);

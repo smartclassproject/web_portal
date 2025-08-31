@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import SchoolModal from '../../components/forms/EditSchoolModal';
@@ -16,7 +17,8 @@ const SchoolsPage: React.FC = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
+  // const [page, setPage] = useState(1);
+  const page = 1;
   const [limit] = useState(10);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [addEditLoading, setAddEditLoading] = useState(false);

@@ -85,6 +85,7 @@ const CoursesPage: React.FC = () => {
 
 
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleUpdateCourse = async (courseData: any) => {
     if (!editingCourse) return;
 
@@ -182,7 +183,7 @@ const CoursesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((course, idx) => (
+                {filtered.map((course) => (
                   <tr key={course._id} className="group border-b last:border-b-0 border-gray-100 hover:bg-blue-50 transition">
                     <td className="py-3 px-4 font-medium text-gray-900">{course.name}</td>
                     <td className="py-3 px-4 text-green-600 font-semibold">{course.code}</td>

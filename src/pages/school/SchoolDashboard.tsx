@@ -1,6 +1,7 @@
 import React from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import type { StatCard } from '../../types';
 
 const stats = [
   {
@@ -51,7 +52,7 @@ const recentAttendances = [
   { id: '5', student: 'David Brown', course: 'Physics', classroom: 'B206', checkInTime: '13:30', status: 'Present' },
 ];
 
-const StatCard = ({ title, value, icon, gradient }: any) => (
+const StatCard = ({ title, value, icon, gradient }: StatCard) => (
   <div className={`flex-1 min-w-[180px] bg-gradient-to-tr ${gradient} rounded-xl shadow-md p-5 flex items-center gap-4`}> 
     <div className="bg-white/20 rounded-lg p-3 flex items-center justify-center">{icon}</div>
     <div>
@@ -116,7 +117,7 @@ const SchoolDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {recentAttendances.map((attendance, idx) => (
+                {recentAttendances.map((attendance) => (
                   <tr
                     key={attendance.id}
                     className="group border-b last:border-b-0 border-gray-100 hover:bg-blue-50 transition"
