@@ -1,5 +1,4 @@
 import axiosInstance from './axiosInstance';
-import type { Student } from '../types';
 
 export const getSchoolStudents = async (page = 1, limit = 10) => {
   const response = await axiosInstance.get(`/api/students/students?page=${page}&limit=${limit}`);

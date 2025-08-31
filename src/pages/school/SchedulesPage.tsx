@@ -212,6 +212,7 @@ const SchedulesPage: React.FC = () => {
     if (courses.length > 0 && teachers.length > 0) {
       fetchSchedules();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeView, selectedDate, customStartDate, customEndDate]);
 
   const fetchSchedules = async () => {
@@ -305,7 +306,6 @@ const SchedulesPage: React.FC = () => {
       return hasSessionInPeriod;
     });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleEventSelect = (event: any) => {
     console.log("Selected event:", event);
     setSelectedSchedule(event.resource);
@@ -835,7 +835,7 @@ const SchedulesPage: React.FC = () => {
                   </thead>
                   <tbody>
                     {filtered &&
-                      filtered.map((schedule, idx) =>
+                      filtered.map((schedule) =>
                         schedule.weeklySessions.map((session, sessionIndex) => (
                           <tr
                             key={`${schedule._id}-${sessionIndex}`}
@@ -908,7 +908,7 @@ const SchedulesPage: React.FC = () => {
               timeslots={1}
               min={new Date(0, 0, 0, 8, 0, 0)}
               max={new Date(0, 0, 0, 18, 0, 0)}
-              eventPropGetter={(event: any) => ({
+              eventPropGetter={() => ({
                 style: {
                   backgroundColor: "#3B82F6",
                   borderRadius: "4px",
@@ -919,7 +919,7 @@ const SchedulesPage: React.FC = () => {
                   cursor: "pointer",
                 },
               })}
-              slotPropGetter={(date: any) => ({
+              slotPropGetter={() => ({
                 style: {
                   cursor: "pointer",
                   backgroundColor: "#f8fafc",

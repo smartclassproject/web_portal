@@ -1,5 +1,4 @@
 import axiosInstance from './axiosInstance';
-import type { Teacher } from '../types';
 
 export const getSchoolTeachers = async (page = 1, limit = 10) => {
   const response = await axiosInstance.get(`/api/teachers/teachers?page=${page}&limit=${limit}`);

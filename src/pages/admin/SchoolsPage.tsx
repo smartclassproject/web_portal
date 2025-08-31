@@ -164,7 +164,7 @@ const SchoolsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((school, key) => (
+              {filtered.map((school) => (
                 <tr key={school._id} className="group border-b last:border-b-0 border-gray-100 hover:bg-green-50 transition">
                   <td className="py-3 px-4 font-medium text-gray-900 flex items-center gap-3 text-sm">
                     <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-tr from-green-400 to-green-600 text-white font-bold shadow-sm">

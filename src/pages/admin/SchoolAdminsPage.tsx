@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Modal from '../../components/ui/Modal';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { getSchoolAdmins, createAdmin, updateAdmin, deleteAdmin, resendSetupEmail, createPasswordForAdmin } from '../../services/adminService';
 import { getSchools } from '../../services/schoolService';
-import type { AdminUser, AdminUserView, School } from '../../types';
+import type { AdminUser, School } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -19,10 +19,10 @@ const SchoolAdminsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [limit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
-  const [isActiveFilter, setIsActiveFilter] = useState('all');
+  const [isActiveFilter] = useState('all');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -107,7 +107,7 @@ const SchoolAdminsPage: React.FC = () => {
     if (errors[name]) setErrors((prev: any) => ({ ...prev, [name]: '' }));
   };
 
-  const validate = (isEdit = false) => {
+  const validate = () => {
     const newErrors: any = {};
     if (!formData.email.trim()) newErrors.email = 'Email required';
     if (!formData.firstName?.trim()) newErrors.firstName = 'First name required';
@@ -314,8 +314,9 @@ const SchoolAdminsPage: React.FC = () => {
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
+    console.log(selectedAdmin);
     e.preventDefault();
-    if (validate(true) && formData._id && formData.email && formData.firstName && formData.lastName && formData.phone && formData.role) {
+    if (validate() && formData._id && formData.email && formData.firstName && formData.lastName && formData.phone && formData.role) {
       setAddLoading(true);
       setError(null);
       try {

@@ -1,5 +1,4 @@
 import axiosInstance from './axiosInstance';
-import type { Course } from '../types';
 
 export interface CreateCourseData {
   name: string;

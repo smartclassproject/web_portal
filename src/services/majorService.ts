@@ -1,5 +1,4 @@
 import axiosInstance from './axiosInstance';
-import type { Major } from '../types';
 
 export const getSchoolMajors = async (page = 1, limit = 10) => {
   const response = await axiosInstance.get(`/api/majors/school/majors?page=${page}&limit=${limit}`);

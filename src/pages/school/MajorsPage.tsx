@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
@@ -67,6 +68,9 @@ const MajorsPage: React.FC = () => {
         code: majorData.code,
         description: majorData.description,
       });
+
+      console.log(newMajor);
+      
 
       toast.success('Major created successfully!');
       
