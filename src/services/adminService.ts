@@ -1,10 +1,12 @@
 import axiosInstance from './axiosInstance';
 
+// Get all school admins
 export const getSchoolAdmins = async (page = 1, limit = 10) => {
   const response = await axiosInstance.get(`/api/admins?page=${page}&limit=${limit}`);
   return response.data;
 };
 
+// Create a new admin
 export const createAdmin = async (admin: {
   email: string;
   password?: string;
