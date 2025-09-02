@@ -41,7 +41,7 @@ const AdminDashboard: React.FC = () => {
         // Fetch schools, admins, and devices in parallel
         const [schoolsResponse, devicesResponse] = await Promise.all([
           getSchools(),
-          getSchoolAdmins(1, 100), // Get all admins for stats
+          // getSchoolAdmins(1, 100), // Get all admins for stats
           getDevices(1, 1000) // Get all devices for stats
         ]);
 
