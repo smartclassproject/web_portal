@@ -19,13 +19,13 @@ const AttendancePage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [schoolFilter, setSchoolFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
-  
+
   // Applied filters (what's actually being used)
   const [appliedSearch, setAppliedSearch] = useState('');
   const [appliedStatusFilter, setAppliedStatusFilter] = useState('all');
   const [appliedSchoolFilter, setAppliedSchoolFilter] = useState('all');
   const [appliedDateFilter, setAppliedDateFilter] = useState('');
-  
+
   // Track if filters have been modified
   const [filtersModified, setFiltersModified] = useState(false);
 
@@ -56,14 +56,14 @@ const AttendancePage: React.FC = () => {
   }, [page, limit]);
 
   const filteredAttendance = attendance.filter(record => {
-    const matchesSearch = 
+    const matchesSearch =
       record.student?.name?.toLowerCase().includes(appliedSearch.toLowerCase()) ||
       record.course?.name?.toLowerCase().includes(appliedSearch.toLowerCase()) ||
       record.classroom.toLowerCase().includes(appliedSearch.toLowerCase()) ||
       record.cardId?.toLowerCase().includes(appliedSearch.toLowerCase());
-    
+
     const matchesStatus = appliedStatusFilter === 'all' || record.status === appliedStatusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -82,10 +82,6 @@ const AttendancePage: React.FC = () => {
 
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString();
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
   };
 
   // Apply filters function
@@ -112,7 +108,7 @@ const AttendancePage: React.FC = () => {
 
   // Check if filters are modified
   const checkFiltersModified = () => {
-    const modified = 
+    const modified =
       search !== appliedSearch ||
       statusFilter !== appliedStatusFilter ||
       schoolFilter !== appliedSchoolFilter ||
@@ -140,6 +136,8 @@ const AttendancePage: React.FC = () => {
     setDateFilter(e.target.value);
     checkFiltersModified();
   };
+
+  console.log(filteredAttendance);
 
   if (loading) {
     return (
@@ -217,7 +215,7 @@ const AttendancePage: React.FC = () => {
                 />
               </div>
             </div>
-            
+
             {/* Filter Actions */}
             <div className="flex justify-between items-center pt-4 border-t border-gray-200">
               <div className="flex items-center gap-2">
@@ -260,9 +258,9 @@ const AttendancePage: React.FC = () => {
           {/* No Data State */}
           {!loading && !error && filteredAttendance.length === 0 && (
             <div className="text-center py-12">
-              <img 
-                src="/no_data.jpg" 
-                alt="No data available" 
+              <img
+                src="/no_data.jpg"
+                alt="No data available"
                 className="mx-auto w-64 h-64 object-contain mb-4"
               />
               <p className="text-gray-500 text-lg">No attendance records found</p>
@@ -280,46 +278,41 @@ const AttendancePage: React.FC = () => {
                       <th className="py-3 px-4 font-semibold text-sm">Student</th>
                       <th className="py-3 px-4 font-semibold text-sm">Course</th>
                       <th className="py-3 px-4 font-semibold text-sm">Classroom</th>
+                      <th className="py-3 px-4 font-semibold text-sm">Card ID</th>
+                      <th className="py-3 px-4 font-semibold text-sm">Location</th>
+                      <th className="py-3 px-4 font-semibold text-sm">Session Date</th>
                       <th className="py-3 px-4 font-semibold text-sm">Check-in Time</th>
                       <th className="py-3 px-4 font-semibold text-sm">Status</th>
-                      <th className="py-3 px-4 font-semibold text-sm">Session Date</th>
-                      <th className="py-3 px-4 font-semibold text-sm">Card ID</th>
-                      <th className="py-3 px-4 font-semibold text-sm">Device</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredAttendance.map((record) => (
                       <tr key={record._id} className="group border-b last:border-b-0 border-gray-100 hover:bg-green-50 transition">
                         <td className="py-3 px-4 font-medium text-gray-900 text-sm">
-                          {record.student?.name || 'Unknown Student'}
+                          {record.studentId?.name || 'Unknown Student'}
                         </td>
                         <td className="py-3 px-4 text-gray-700 text-sm">
-                          {record.course?.name || 'Unknown Course'}
+                          {record.majorId?.name || 'Unknown Major'}
                         </td>
                         <td className="py-3 px-4 text-gray-700 text-sm">
                           {record.classroom}
-                        </td>
-                        <td className="py-3 px-4 text-gray-700 text-sm">
-                          {formatDateTime(record.checkInTime)}
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(record.status)}`}>
-                            {record.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-gray-700 text-sm">
-                          {formatDate(record.sessionDate)}
                         </td>
                         <td className="py-3 px-4 text-gray-700 text-sm font-mono">
                           {record.cardId || '-'}
                         </td>
                         <td className="py-3 px-4 text-gray-700 text-sm">
-                          <div>
-                            <div className="font-medium">{record.deviceId}</div>
-                            {record.deviceLocation && (
-                              <div className="text-xs text-gray-500">{record.deviceLocation}</div>
-                            )}
-                          </div>
+                          {record.deviceLocation}
+                        </td>
+                        <td className="py-3 px-4 text-gray-700 text-sm">
+                          {formatDateTime(record.sessionDate)}
+                        </td>
+                        <td className="py-3 px-4 text-gray-700 text-sm">
+                          {formatDateTime(record.checkInTime)} 
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(record.status)}`}>
+                            {record.status}
+                          </span>
                         </td>
                       </tr>
                     ))}

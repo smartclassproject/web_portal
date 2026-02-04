@@ -116,10 +116,11 @@ export interface CourseSchedule {
 
 export interface Attendance {
   _id: string;
-  studentId: string;
+  studentId: Student;
   courseId: string;
   scheduleId: string;
-  deviceId: string;
+  deviceId: Device;
+  majorId?: Major;
   classroom: string;
   checkInTime: string;
   status: "Present" | "Absent" | "Late";

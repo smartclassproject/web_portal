@@ -74,11 +74,7 @@ const AttendancePage: React.FC = () => {
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString();
   };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
+  
   // Apply filters function
   const applyFilters = () => {
     setAppliedSearch(search);
@@ -247,11 +243,11 @@ const AttendancePage: React.FC = () => {
                       <th className="py-3 px-4 font-semibold text-sm">Student</th>
                       <th className="py-3 px-4 font-semibold text-sm">Course</th>
                       <th className="py-3 px-4 font-semibold text-sm">Classroom</th>
+                      <th className="py-3 px-4 font-semibold text-sm">Card ID</th>
+                      <th className="py-3 px-4 font-semibold text-sm">Location</th>
+                      <th className="py-3 px-4 font-semibold text-sm">Session Date</th>
                       <th className="py-3 px-4 font-semibold text-sm">Check-in Time</th>
                       <th className="py-3 px-4 font-semibold text-sm">Status</th>
-                      <th className="py-3 px-4 font-semibold text-sm">Session Date</th>
-                      <th className="py-3 px-4 font-semibold text-sm">Card ID</th>
-                      <th className="py-3 px-4 font-semibold text-sm">Device</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -266,6 +262,15 @@ const AttendancePage: React.FC = () => {
                         <td className="py-3 px-4 text-gray-700 text-sm">
                           {record.classroom}
                         </td>
+                        <td className="py-3 px-4 text-gray-700 text-sm font-mono">
+                          {record.cardId || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-gray-700 text-sm">
+                          {record.deviceLocation}
+                        </td>
+                        <td className="py-3 px-4 text-gray-700 text-sm">
+                          {formatDateTime(record.sessionDate)}
+                        </td>
                         <td className="py-3 px-4 text-gray-700 text-sm">
                           {formatDateTime(record.checkInTime)}
                         </td>
@@ -273,20 +278,6 @@ const AttendancePage: React.FC = () => {
                           <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(record.status)}`}>
                             {record.status}
                           </span>
-                        </td>
-                        <td className="py-3 px-4 text-gray-700 text-sm">
-                          {formatDate(record.sessionDate)}
-                        </td>
-                        <td className="py-3 px-4 text-gray-700 text-sm font-mono">
-                          {record.cardId || '-'}
-                        </td>
-                        <td className="py-3 px-4 text-gray-700 text-sm">
-                          <div>
-                            <div className="font-medium">{record.deviceId}</div>
-                            {record.deviceLocation && (
-                              <div className="text-xs text-gray-500">{record.deviceLocation}</div>
-                            )}
-                          </div>
                         </td>
                       </tr>
                     ))}
