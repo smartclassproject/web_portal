@@ -6,7 +6,7 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import AddTeacherModal from '../../components/forms/AddTeacherModal';
 import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../contexts/AuthContext';
-import { getSchoolTeachers, createTeacher, updateTeacher, deleteTeacher } from '../../services/teacherService';
+import { getSchoolTeachers, createTeacher, updateTeacher, deleteTeacher, resendTeacherCredentials } from '../../services/teacherService';
 import type { Teacher } from '../../types';
 
 const TeachersPage: React.FC = () => {
@@ -22,6 +22,7 @@ const TeachersPage: React.FC = () => {
   const [addLoading, setAddLoading] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
@@ -53,15 +54,21 @@ const TeachersPage: React.FC = () => {
     fetchTeachers();
   }, [user?.schoolId, page]);
 
-  const handleAddTeacher = async (teacherData: { name: string; email: string; phone: string; department?: string; specialization?: string; profileUrl?: string }) => {
+  const handleAddTeacher = async (teacherData: { name: string; email: string; phone: string; department?: string; specialization?: string; profileUrl?: string; defaultPassword?: string }) => {
     if (!user?.schoolId) return;
     setAddLoading(true);
     try {
-      await createTeacher({
+      const response = await createTeacher({
         schoolId: user.schoolId,
         ...teacherData,
       });
       toast.success('Teacher created successfully!');
+      
+      // Show default password if returned
+      if (response.data?.defaultPassword) {
+        toast.info(`Default password: ${response.data.defaultPassword}`, { autoClose: 10000 });
+      }
+      
       // Refresh the teachers list to get the newly added teacher
       await fetchTeachers();
       // Close the modal only after successful response and refresh
@@ -104,6 +111,19 @@ const TeachersPage: React.FC = () => {
       toast.error('Failed to delete teacher');
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const handleResendCredentials = async (teacherId: string) => {
+    setResendLoading(teacherId);
+    try {
+      await resendTeacherCredentials(teacherId);
+      toast.success('Login credentials email has been resent successfully!');
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to resend credentials';
+      toast.error(errorMessage);
+    } finally {
+      setResendLoading(null);
     }
   };
 
@@ -244,35 +264,55 @@ const TeachersPage: React.FC = () => {
                       <td className="py-3 px-4 text-gray-600">
                         {new Date(teacher.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="py-3 px-4 flex gap-2">
-                        <button
-                          onClick={() => handleEditClick(teacher)}
-                          disabled={editLoading && selectedTeacher?._id === teacher._id}
-                          className="text-blue-500 hover:text-blue-700 hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {editLoading && selectedTeacher?._id === teacher._id ? (
-                            <span className="flex items-center gap-1">
-                              <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></span>
-                              Updating...
-                            </span>
-                          ) : (
-                            'Edit'
+                      <td className="py-3 px-4">
+                        <div className="flex gap-2 flex-wrap">
+                          <button
+                            onClick={() => handleEditClick(teacher)}
+                            disabled={editLoading && selectedTeacher?._id === teacher._id}
+                            className="text-blue-500 hover:text-blue-700 hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                          >
+                            {editLoading && selectedTeacher?._id === teacher._id ? (
+                              <span className="flex items-center gap-1">
+                                <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></span>
+                                Updating...
+                              </span>
+                            ) : (
+                              'Edit'
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(teacher)}
+                            disabled={deleteLoading && selectedTeacher?._id === teacher._id}
+                            className="text-red-500 hover:text-red-700 hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                          >
+                            {deleteLoading && selectedTeacher?._id === teacher._id ? (
+                              <span className="flex items-center gap-1">
+                                <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></span>
+                                Deleting...
+                              </span>
+                            ) : (
+                              'Delete'
+                            )}
+                          </button>
+                          {!teacher.passwordSetup && (
+                            <button
+                              onClick={() => handleResendCredentials(teacher._id)}
+                              disabled={resendLoading === teacher._id}
+                              className="text-green-600 hover:text-green-700 hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                              title="Resend login credentials email to teacher who hasn't set up password"
+                            >
+                              {resendLoading === teacher._id ? (
+                                <span className="flex items-center gap-1">
+                                  <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></span>
+                                  Sending...
+                                </span>
+                              ) : (
+                                'Resend Credentials'
+                              )}
+                            </button>
                           )}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClick(teacher)}
-                          disabled={deleteLoading && selectedTeacher?._id === teacher._id}
-                          className="text-red-500 hover:text-red-700 hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {deleteLoading && selectedTeacher?._id === teacher._id ? (
-                            <span className="flex items-center gap-1">
-                              <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></span>
-                              Deleting...
-                            </span>
-                          ) : (
-                            'Delete'
-                          )}
-                        </button>
+                         
+                        </div>
                       </td>
                     </tr>
                   ))}

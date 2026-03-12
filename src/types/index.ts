@@ -84,6 +84,7 @@ export interface Teacher {
   department?: string;
   specialization?: string;
   profileUrl?: string;
+  passwordSetup?: boolean;
   createdAt: string;
 }
 
@@ -171,9 +172,11 @@ export interface Device {
 export interface User {
   id: string;
   email: string;
-  role: "super_admin" | "school_admin";
+  role: "super_admin" | "school_admin" | "teacher";
   schoolId?: string;
+  teacherId?: string;
   name: string;
+  requiresPasswordChange?: boolean;
 }
 
 export interface LoginCredentials {
@@ -239,4 +242,62 @@ export interface ScheduleResponse {
   page: number;
   limit: number;
   totalPages: number;
+}
+
+export interface Exam {
+  _id: string;
+  schoolId: string;
+  courseId: string | Course;
+  scheduleId: string | CourseSchedule;
+  teacherId: string | Teacher;
+  title: string;
+  description?: string;
+  examDate: string;
+  examTime: string;
+  duration: number;
+  maxScore: number;
+  reportUrl?: string;
+  isPublished: boolean;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Material {
+  _id: string;
+  schoolId: string;
+  courseId: string | Course;
+  teacherId: string | Teacher;
+  title: string;
+  description?: string;
+  fileType: 'pdf' | 'ppt' | 'pptx' | 'video' | 'image' | 'document' | 'other';
+  fileUrl: string;
+  fileName?: string;
+  fileSize?: number;
+  isPublished: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface Lesson {
+  _id: string;
+  schoolId: string;
+  courseId: string | Course;
+  scheduleId: string | CourseSchedule;
+  teacherId: string | Teacher;
+  title: string;
+  description?: string;
+  lessonDate: string;
+  materials?: LessonMaterial[];
+  isPublished: boolean;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface LessonMaterial {
+  name: string;
+  url: string;
+  type: 'pdf' | 'video' | 'link' | 'document';
 }

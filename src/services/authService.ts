@@ -37,4 +37,13 @@ export const resetPassword = async (token: string, password: string) => {
     password
   });
   return response.data;
+};
+
+export const teacherSetPassword = async (email: string, defaultPassword: string, newPassword: string) => {
+  const response = await axiosInstance.post('/api/auth/teacher/set-password', {
+    email,
+    defaultPassword,
+    newPassword
+  });
+  return response.data;
 }; 

@@ -40,7 +40,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // Extract user data and token from response
-      const { token, user: backendUser } = result.data;
+      const { token, user: backendUser, requiresPasswordChange } = result.data;
+
+      if (!token || !backendUser) {
+        throw new Error('Invalid response from server');
+      }
 
       // Map backend user data to frontend User type
       const user: User = {
@@ -49,6 +53,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         role: backendUser.role,
         name: backendUser.name || `${backendUser.firstName || ''} ${backendUser.lastName || ''}`.trim() || backendUser.email,
         schoolId: backendUser.schoolId,
+        teacherId: backendUser.teacherId,
+        requiresPasswordChange: requiresPasswordChange || backendUser.requiresPasswordChange || false,
       };
 
       // Store user data and token
@@ -56,8 +62,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('token', token);
 
-      // Show success toast
-      toast.success(`Welcome back, ${user.name}!`);
+      // Show success toast (with warning if password change is required)
+      if (user.requiresPasswordChange) {
+        toast.warning('Please change your password for security reasons.');
+      } else {
+        toast.success(`Welcome back, ${user.name}!`);
+      }
 
       // Return user for redirect handling
       return user;

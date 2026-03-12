@@ -16,11 +16,18 @@ import AdminAttendancePage from './pages/admin/AttendancePage';
 import AdminDevicesPage from './pages/admin/DevicesPage';
 import SchoolsPage from './pages/admin/SchoolsPage';
 import SchoolAdminsPage from './pages/admin/SchoolAdminsPage';
+import TeacherDashboard from './pages/teacher/TeacherDashboard';
+import TeacherCalendarPage from './pages/teacher/TeacherCalendarPage';
+import TeacherExamsPage from './pages/teacher/TeacherExamsPage';
+import TeacherLessonsPage from './pages/teacher/TeacherLessonsPage';
+import TeacherStudentsPage from './pages/teacher/TeacherStudentsPage';
+import TeacherMaterialsPage from './pages/teacher/TeacherMaterialsPage';
 import './index.css';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import TeacherSetPasswordPage from './pages/TeacherSetPasswordPage';
 
 // Route protection component
-const RequireAuth: React.FC<{ children: React.ReactNode; role?: 'super_admin' | 'school_admin' }> = ({ children, role }) => {
+const RequireAuth: React.FC<{ children: React.ReactNode; role?: 'super_admin' | 'school_admin' | 'teacher' }> = ({ children, role }) => {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
@@ -35,6 +42,7 @@ const RedirectToDashboard: React.FC = () => {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'super_admin') return <Navigate to="/admin/dashboard" replace />;
+  if (user.role === 'teacher') return <Navigate to="/teacher/dashboard" replace />;
   return <Navigate to="/school/dashboard" replace />;
 };
 
@@ -46,6 +54,7 @@ const App: React.FC = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/setup-password" element={<SetupPasswordPage />} />
+          <Route path="/teacher/set-password" element={<TeacherSetPasswordPage />} />
           <Route path="/" element={<RedirectToDashboard />} />
           <Route
             path="/admin/dashboard"
@@ -148,6 +157,54 @@ const App: React.FC = () => {
             element={
               <RequireAuth role="school_admin">
                 <AttendancePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/teacher/dashboard"
+            element={
+              <RequireAuth role="teacher">
+                <TeacherDashboard />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/teacher/calendar"
+            element={
+              <RequireAuth role="teacher">
+                <TeacherCalendarPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/teacher/exams"
+            element={
+              <RequireAuth role="teacher">
+                <TeacherExamsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/teacher/lessons"
+            element={
+              <RequireAuth role="teacher">
+                <TeacherLessonsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/teacher/materials"
+            element={
+              <RequireAuth role="teacher">
+                <TeacherMaterialsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/teacher/students"
+            element={
+              <RequireAuth role="teacher">
+                <TeacherStudentsPage />
               </RequireAuth>
             }
           />

@@ -5,11 +5,36 @@ import type { Teacher } from '../../types';
 interface AddTeacherModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (teacherData: { name: string; email: string; phone: string; department?: string; specialization?: string; profileUrl?: string }) => void;
+  onSubmit: (teacherData: { name: string; email: string; phone: string; department?: string; specialization?: string; profileUrl?: string; defaultPassword?: string }) => void;
   initialData?: Teacher | null;
   isEdit?: boolean;
   loading?: boolean;
 }
+
+const departments = [
+  'Computer Science',
+  'Mathematics',
+  'Physics',
+  'Chemistry',
+  'Biology',
+  'English',
+  'History',
+  'Geography',
+  'Economics',
+  'Business Administration',
+  'Engineering',
+  'Medicine',
+  'Law',
+  'Education',
+  'Psychology',
+  'Sociology',
+  'Political Science',
+  'Languages',
+  'Arts',
+  'Music',
+  'Physical Education',
+  'Other'
+];
 
 const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ 
   isOpen, 
@@ -26,6 +51,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({
     department: '',
     specialization: '',
     profileUrl: '',
+    defaultPassword: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -39,11 +65,12 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({
         department: initialData.department || '',
         specialization: initialData.specialization || '',
         profileUrl: initialData.profileUrl || '',
+        defaultPassword: '',
       });
     }
   }, [initialData, isEdit]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
@@ -53,7 +80,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({
 
   const handleClose = () => {
     if (!loading) {
-      setFormData({ name: '', email: '', phone: '', department: '', specialization: '', profileUrl: '' });
+      setFormData({ name: '', email: '', phone: '', department: '', specialization: '', profileUrl: '', defaultPassword: '' });
       setErrors({});
     }
     onClose();
@@ -79,17 +106,18 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({
         department: formData.department.trim() || undefined,
         specialization: formData.specialization.trim() || undefined,
         profileUrl: formData.profileUrl.trim() || undefined,
+        defaultPassword: formData.defaultPassword.trim() || undefined,
       });
       // Don't close modal here - let parent component handle it after API response
       if (!loading) {
-        setFormData({ name: '', email: '', phone: '', department: '', specialization: '', profileUrl: '' });
+        setFormData({ name: '', email: '', phone: '', department: '', specialization: '', profileUrl: '', defaultPassword: '' });
         setErrors({});
       }
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title={isEdit ? "Edit Teacher" : "Add New Teacher"} size="md">
+    <Modal isOpen={isOpen} onClose={handleClose} title={isEdit ? "Edit Teacher" : "Add New Teacher"} size="lg">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -133,15 +161,20 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({
           </div>
           <div>
             <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-2">Department</label>
-            <input
-              type="text"
+            <select
               id="department"
               name="department"
               value={formData.department}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="e.g., Computer Science"
-            />
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              <option value="">Select a department</option>
+              {departments.map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label htmlFor="specialization" className="block text-sm font-medium text-gray-700 mb-2">Specialization</label>
@@ -167,6 +200,24 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({
               placeholder="https://example.com/profile.jpg"
             />
           </div>
+          {!isEdit && (
+            <div>
+              <label htmlFor="defaultPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                Default Password
+                <span className="text-gray-500 text-xs ml-2">(Optional - will use system default if not provided)</span>
+              </label>
+              <input
+                type="text"
+                id="defaultPassword"
+                name="defaultPassword"
+                value={formData.defaultPassword}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Leave empty for system default"
+              />
+              <p className="mt-1 text-xs text-gray-500">Teacher will use this password for first-time login</p>
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
           <button type="button" onClick={handleClose} disabled={loading} className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Cancel</button>

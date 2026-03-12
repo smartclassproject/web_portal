@@ -12,7 +12,8 @@ export const createTeacher = async (teacher: {
   phone: string; 
   department?: string; 
   specialization?: string; 
-  profileUrl?: string; 
+  profileUrl?: string;
+  defaultPassword?: string;
 }) => {
   const response = await axiosInstance.post('/api/teachers/teachers', teacher);
   return response.data;
@@ -32,5 +33,10 @@ export const updateTeacher = async (id: string, teacher: {
 
 export const deleteTeacher = async (id: string) => {
   const response = await axiosInstance.delete(`/api/teachers/teachers/${id}`);
+  return response.data;
+};
+
+export const resendTeacherCredentials = async (id: string) => {
+  const response = await axiosInstance.post(`/api/teachers/${id}/resend-credentials`);
   return response.data;
 };

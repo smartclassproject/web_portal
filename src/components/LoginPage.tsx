@@ -39,18 +39,29 @@ const LoginPage: React.FC = () => {
     setError('');
 
     try {
-      const user = await login({ email, password });
+      const result = await login({ email, password });
+      
+      const user = result.data?.user || result;
+      
+      // Store email and default password if password change is required (for later use)
+      if (result.data?.requiresPasswordChange || user.requiresPasswordChange) {
+        sessionStorage.setItem('teacherEmail', email);
+        sessionStorage.setItem('defaultPassword', password);
+      }
       
       // Redirect based on user role
       if (user.role === 'super_admin') {
         navigate('/admin/dashboard');
-      } else if(user.role === 'school_admin'){
+      } else if (user.role === 'school_admin') {
         navigate('/school/dashboard');
-      }else{
+      } else if (user.role === 'teacher') {
+        navigate('/teacher/dashboard');
+      } else {
         setError('Unknown user role!');
       }
-    } catch (error) {
-      setError('Invalid email or password');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Invalid email or password';
+      setError(errorMessage);
     }
   };
 
