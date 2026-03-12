@@ -21,4 +21,34 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+axiosInstance.interceptors.response.use(
+  (response) => {
+    const data = response?.data;
+    if (
+      data &&
+      data.success === false &&
+      (data.message === 'Token expired' || data.message?.toLowerCase().includes('token expired'))
+    ) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+      return Promise.reject(new Error(data.message));
+    }
+    return response;
+  },
+  (error) => {
+    const data = error.response?.data;
+    if (
+      data &&
+      data.success === false &&
+      (data.message === 'Token expired' || data.message?.toLowerCase().includes('token expired'))
+    ) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default axiosInstance; 

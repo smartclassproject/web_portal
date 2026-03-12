@@ -87,10 +87,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('token');
   };
 
+  /** Call after setup-password / reset-password when API returns token + user (no credentials). */
+  const setUserFromToken = (token: string, backendUser: Record<string, unknown>) => {
+    const user: User = {
+      id: (backendUser.id ?? backendUser._id) as string,
+      email: (backendUser.email as string) ?? '',
+      role: (backendUser.role as User['role']) ?? 'school_admin',
+      name: (backendUser.name as string) || ((backendUser.firstName || backendUser.lastName) ? `${backendUser.firstName ?? ''} ${backendUser.lastName ?? ''}`.trim() : (backendUser.email as string)) || '',
+      schoolId: backendUser.schoolId as string | undefined,
+      teacherId: backendUser.teacherId as string | undefined,
+      requiresPasswordChange: false,
+    };
+    setUser(user);
+    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('token', token);
+  };
+
   const value: AuthContextType = {
     user,
     login,
     logout,
+    setUserFromToken,
     isLoading
   };
 

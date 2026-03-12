@@ -188,6 +188,7 @@ export interface AuthContextType {
   user: User | null;
   login: (credentials: LoginCredentials) => Promise<User>;
   logout: () => void;
+  setUserFromToken: (token: string, backendUser: Record<string, unknown>) => void;
   isLoading: boolean;
 }
 

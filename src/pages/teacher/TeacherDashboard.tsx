@@ -121,7 +121,7 @@ const TeacherDashboard: React.FC = () => {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Lessons Posted</p>
+                <p className="text-sm text-gray-600">Chapters</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">{lessons.length}</p>
               </div>
               <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -167,7 +167,7 @@ const TeacherDashboard: React.FC = () => {
                 <svg className="w-5 h-5 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                <span className="text-sm font-medium text-gray-700">Post Lesson</span>
+                <span className="text-sm font-medium text-gray-700">Chapters</span>
               </div>
             </Link>
             <Link

@@ -3,7 +3,7 @@ import axiosInstance from './axiosInstance';
 
 export interface CreateLessonData {
   courseId: string;
-  scheduleId: string;
+  scheduleId?: string;
   title: string;
   description?: string;
   lessonDate: string;

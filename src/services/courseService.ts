@@ -16,8 +16,18 @@ export interface UpdateCourseData {
   credits?: number;
 }
 
-export const getSchoolCourses = async (page = 1, limit = 10) => {
-  const response = await axiosInstance.get(`/api/courses?page=${page}&limit=${limit}`);
+export const getSchoolCourses = async (
+  page = 1,
+  limit = 10,
+  params?: { search?: string; majorId?: string }
+) => {
+  const searchParams = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    ...(params?.search && { search: params.search }),
+    ...(params?.majorId && { majorId: params.majorId }),
+  });
+  const response = await axiosInstance.get(`/api/courses?${searchParams.toString()}`);
   return response.data;
 };
 

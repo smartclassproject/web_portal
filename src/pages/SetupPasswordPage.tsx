@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { setupPassword } from '../services/authService';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -12,6 +13,7 @@ interface SetupPasswordData {
 
 const SetupPasswordPage: React.FC = () => {
   const navigate = useNavigate();
+  const { setUserFromToken } = useAuth();
   const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState<SetupPasswordData>({
     password: '',
@@ -75,32 +77,29 @@ const SetupPasswordPage: React.FC = () => {
 
     setLoading(true);
     try {
-      const data = await setupPassword(token, formData.password);
-      
-      toast.success('Password set successfully!');
-      
-      // Store the new token if provided
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-      }
-      
-      // Store user info
-      if (data.user) {
-        localStorage.setItem('user', JSON.stringify(data.user));
-        // setUserInfo(data.user);
+      const response = await setupPassword(token, formData.password);
+      // API returns { success, message, data: { token, user } }
+      const payload = response.data ?? response;
+
+      if (!payload?.token || !payload?.user) {
+        toast.error('Invalid response from server');
+        return;
       }
 
-      // Redirect based on role
-      setTimeout(() => {
-        if (data.user?.role === 'super_admin') {
-          navigate('/admin/dashboard');
-        } else if (data.user?.role === 'school_admin') {
-          navigate('/school/dashboard');
-        } else {
-          navigate('/login');
-        }
-      }, 1000);
+      setUserFromToken(payload.token, payload.user);
+      toast.success('Password set successfully! You are now logged in.');
 
+      // Redirect to the correct dashboard (user is already in context)
+      const role = payload.user?.role;
+      if (role === 'super_admin') {
+        navigate('/admin/dashboard', { replace: true });
+      } else if (role === 'school_admin') {
+        navigate('/school/dashboard', { replace: true });
+      } else if (role === 'teacher') {
+        navigate('/teacher/dashboard', { replace: true });
+      } else {
+        navigate('/login', { replace: true });
+      }
     } catch (error: any) {
       console.error('Error setting password:', error);
       toast.error(error.response?.data?.message || 'An error occurred while setting your password');

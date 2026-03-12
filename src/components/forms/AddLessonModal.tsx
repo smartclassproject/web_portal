@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
-import type { Lesson, Course, Schedule, LessonMaterial } from '../../types';
+import type { Lesson, Course, LessonMaterial } from '../../types';
 
 interface AddLessonModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (lessonData: {
     courseId: string;
-    scheduleId: string;
     title: string;
     description?: string;
     lessonDate: string;
@@ -16,7 +15,6 @@ interface AddLessonModalProps {
   }) => void;
   initialData?: Lesson | null;
   courses: Course[];
-  schedules: Schedule[];
   isEdit?: boolean;
   loading?: boolean;
 }
@@ -27,13 +25,11 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
   onSubmit,
   initialData,
   courses,
-  schedules,
   isEdit = false,
   loading = false
 }) => {
   const [formData, setFormData] = useState({
     courseId: '',
-    scheduleId: '',
     title: '',
     description: '',
     lessonDate: '',
@@ -47,7 +43,6 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
     if (initialData && isEdit) {
       setFormData({
         courseId: typeof initialData.courseId === 'string' ? initialData.courseId : initialData.courseId._id,
-        scheduleId: typeof initialData.scheduleId === 'string' ? initialData.scheduleId : initialData.scheduleId._id,
         title: initialData.title,
         description: initialData.description || '',
         lessonDate: initialData.lessonDate.split('T')[0],
@@ -91,7 +86,6 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
     if (!loading) {
       setFormData({
         courseId: '',
-        scheduleId: '',
         title: '',
         description: '',
         lessonDate: '',
@@ -107,9 +101,8 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.courseId.trim()) newErrors.courseId = 'Course is required';
-    if (!formData.scheduleId.trim()) newErrors.scheduleId = 'Schedule is required';
     if (!formData.title.trim()) newErrors.title = 'Title is required';
-    if (!formData.lessonDate) newErrors.lessonDate = 'Lesson date is required';
+    if (!formData.lessonDate) newErrors.lessonDate = 'Date is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -119,7 +112,6 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
     if (validateForm()) {
       onSubmit({
         courseId: formData.courseId.trim(),
-        scheduleId: formData.scheduleId.trim(),
         title: formData.title.trim(),
         description: formData.description.trim() || undefined,
         lessonDate: formData.lessonDate,
@@ -129,7 +121,6 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
       if (!loading) {
         setFormData({
           courseId: '',
-          scheduleId: '',
           title: '',
           description: '',
           lessonDate: '',
@@ -142,12 +133,8 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
     }
   };
 
-  const filteredSchedules = schedules.filter(s => 
-    typeof formData.courseId === 'string' && s.courseId === formData.courseId
-  );
-
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title={isEdit ? "Edit Lesson" : "Post New Lesson"} size="lg">
+    <Modal isOpen={isOpen} onClose={handleClose} title={isEdit ? "Edit Chapter" : "Add New Chapter"} size="lg">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label htmlFor="courseId" className="block text-sm font-medium text-gray-700 mb-2">Course *</label>
@@ -166,26 +153,7 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
           {errors.courseId && <p className="mt-1 text-sm text-red-600">{errors.courseId}</p>}
         </div>
         <div>
-          <label htmlFor="scheduleId" className="block text-sm font-medium text-gray-700 mb-2">Schedule *</label>
-          <select
-            id="scheduleId"
-            name="scheduleId"
-            value={formData.scheduleId}
-            onChange={handleChange}
-            disabled={!formData.courseId}
-            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.scheduleId ? 'border-red-500' : 'border-gray-300'} ${!formData.courseId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-          >
-            <option value="">Select a schedule</option>
-            {filteredSchedules.map(schedule => (
-              <option key={schedule._id} value={schedule._id}>
-                {schedule.classroom} - {new Date(schedule.startDate).toLocaleDateString()}
-              </option>
-            ))}
-          </select>
-          {errors.scheduleId && <p className="mt-1 text-sm text-red-600">{errors.scheduleId}</p>}
-        </div>
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">Chapter Title *</label>
           <input
             type="text"
             id="title"
@@ -208,7 +176,7 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
           />
         </div>
         <div>
-          <label htmlFor="lessonDate" className="block text-sm font-medium text-gray-700 mb-2">Lesson Date *</label>
+          <label htmlFor="lessonDate" className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
           <input
             type="date"
             id="lessonDate"
@@ -301,7 +269,7 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
                 {isEdit ? 'Updating...' : 'Creating...'}
               </>
             ) : (
-              isEdit ? 'Update Lesson' : 'Create Lesson'
+              isEdit ? 'Update Chapter' : 'Create Chapter'
             )}
           </button>
         </div>
