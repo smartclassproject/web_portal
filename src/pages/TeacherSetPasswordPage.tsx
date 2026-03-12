@@ -10,9 +10,7 @@ const TeacherSetPasswordPage: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
-
-  const { user } = useAuth();
+  const { setUserFromToken, user } = useAuth();
   const [email, setEmail] = useState('');
   const [defaultPassword, setDefaultPassword] = useState('');
 
@@ -76,16 +74,12 @@ const TeacherSetPasswordPage: React.FC = () => {
 
         // Store user data and token
         const { token, user: updatedUser } = result.data;
-        // Remove requiresPasswordChange flag after password is set
         const userWithoutPasswordChange = { ...updatedUser, requiresPasswordChange: false };
         localStorage.setItem('user', JSON.stringify(userWithoutPasswordChange));
         localStorage.setItem('token', token);
 
-        // Update auth context
-        if (login) {
-          // Refresh the user in context
-          window.location.reload();
-        }
+        // Update auth context so redirect works without a full reload
+        setUserFromToken(token, userWithoutPasswordChange);
 
         toast.success('Password set successfully! Welcome to SmartClass.');
         
