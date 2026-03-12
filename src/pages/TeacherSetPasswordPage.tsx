@@ -198,7 +198,7 @@ const TeacherSetPasswordPage: React.FC = () => {
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-sm text-gray-500">
-            &copy; 2024 SmartClass Portal. All rights reserved.
+            &copy; 2026 SmartClass Portal. All rights reserved.
           </p>
         </div>
       </div>

@@ -165,7 +165,7 @@ const TeacherStudentsPage: React.FC = () => {
                           {major?.name || 'Unknown'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {student.class}
+                          {(student as any).classId?.name ?? student.class}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 text-xs rounded-full ${

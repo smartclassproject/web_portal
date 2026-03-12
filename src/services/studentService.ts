@@ -11,13 +11,14 @@ export const createStudent = async (student: {
   studentId: string; 
   cardId: string; 
   majorId: string; 
-  class: string; 
+  classId: string; 
   dateOfBirth: string; 
   email: string; 
   phone?: string; 
   profileUrl?: string; 
   isActive: boolean; 
-  enrollmentDate: string; 
+  enrollmentYear: number;
+  enrollmentDate?: string;
 }) => {
   const response = await axiosInstance.post('/api/students/students', student);
   return response.data;
@@ -27,11 +28,12 @@ export const updateStudent = async (id: string, student: {
   name: string; 
   studentId: string; 
   cardId: string; 
-  class: string; 
+  classId?: string; 
   dateOfBirth: string; 
   email: string; 
   phone?: string; 
   isActive: boolean; 
+  enrollmentYear?: number;
 }) => {
   const response = await axiosInstance.put(`/api/students/students/${id}`, student);
   return response.data;

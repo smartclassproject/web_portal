@@ -66,12 +66,14 @@ export interface Student {
   cardId: string;
   majorId: string | Major;
   class: string;
+  classId?: string | { _id: string; name: string; code?: string };
   dateOfBirth: string;
   email: string;
   phone?: string;
   profileUrl?: string;
   isActive: boolean;
-  enrollmentDate: string;
+  enrollmentDate?: string;
+  enrollmentYear?: number;
   createdAt: string;
 }
 

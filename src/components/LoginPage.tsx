@@ -16,8 +16,10 @@ const LoginPage: React.FC = () => {
     if (user) {
       if (user.role === 'super_admin') {
         navigate('/admin/dashboard');
-      } else {
+      } else if (user.role === 'school_admin') {
         navigate('/school/dashboard');
+      } else if (user.role === 'teacher') {
+        navigate('/teacher/dashboard');
       }
     }
   }, [user, navigate]);
@@ -40,11 +42,10 @@ const LoginPage: React.FC = () => {
 
     try {
       const result = await login({ email, password });
-      
-      const user = result.data?.user || result;
-      
+      const user = result;
+
       // Store email and default password if password change is required (for later use)
-      if (result.data?.requiresPasswordChange || user.requiresPasswordChange) {
+      if (user.requiresPasswordChange) {
         sessionStorage.setItem('teacherEmail', email);
         sessionStorage.setItem('defaultPassword', password);
       }
@@ -170,7 +171,7 @@ const LoginPage: React.FC = () => {
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-sm text-gray-500">
-            &copy; 2024 SmartClass Portal. All rights reserved.
+            &copy; 2026 SmartClass Portal. All rights reserved.
           </p>
         </div>
       </div>

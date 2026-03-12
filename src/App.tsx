@@ -8,6 +8,7 @@ import SchoolDashboard from './pages/school/SchoolDashboard';
 import TeachersPage from './pages/school/TeachersPage';
 import StudentsPage from './pages/school/StudentsPage';
 import MajorsPage from './pages/school/MajorsPage';
+import ClassesPage from './pages/school/ClassesPage';
 import CoursesPage from './pages/school/CoursesPage';
 import SchedulesPage from './pages/school/SchedulesPage';
 import DevicesPage from './pages/school/DevicesPage';
@@ -22,6 +23,9 @@ import TeacherExamsPage from './pages/teacher/TeacherExamsPage';
 import TeacherLessonsPage from './pages/teacher/TeacherLessonsPage';
 import TeacherStudentsPage from './pages/teacher/TeacherStudentsPage';
 import TeacherMaterialsPage from './pages/teacher/TeacherMaterialsPage';
+import TeacherTermResultsPage from './pages/teacher/TeacherTermResultsPage';
+import SchoolSettingsPage from './pages/school/SchoolSettingsPage';
+import ReportCardsPage from './pages/school/ReportCardsPage';
 import './index.css';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import TeacherSetPasswordPage from './pages/TeacherSetPasswordPage';
@@ -129,6 +133,14 @@ const App: React.FC = () => {
             }
           />
           <Route
+            path="/school/classes"
+            element={
+              <RequireAuth role="school_admin">
+                <ClassesPage />
+              </RequireAuth>
+            }
+          />
+          <Route
             path="/school/courses"
             element={
               <RequireAuth role="school_admin">
@@ -157,6 +169,22 @@ const App: React.FC = () => {
             element={
               <RequireAuth role="school_admin">
                 <AttendancePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/school/report-cards"
+            element={
+              <RequireAuth role="school_admin">
+                <ReportCardsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/school/settings"
+            element={
+              <RequireAuth role="school_admin">
+                <SchoolSettingsPage />
               </RequireAuth>
             }
           />
@@ -205,6 +233,14 @@ const App: React.FC = () => {
             element={
               <RequireAuth role="teacher">
                 <TeacherStudentsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/teacher/term-results"
+            element={
+              <RequireAuth role="teacher">
+                <TeacherTermResultsPage />
               </RequireAuth>
             }
           />

@@ -8,6 +8,7 @@ import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../contexts/AuthContext';
 import { getSchoolStudents, createStudent, updateStudent, deleteStudent } from '../../services/studentService';
 import { getSchoolMajors } from '../../services/majorService';
+import { getClasses } from '../../services/classService';
 import type { Student, Major } from '../../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -20,6 +21,7 @@ const StudentsPage: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [majors, setMajors] = useState<Major[]>([]);
+  const [classes, setClasses] = useState<{ _id: string; name: string; code?: string }[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(false);
   const [majorsLoading, setMajorsLoading] = useState(false);
@@ -68,11 +70,21 @@ const StudentsPage: React.FC = () => {
     }
   };
 
+  const fetchClasses = async () => {
+    if (!user?.schoolId) return;
+    try {
+      const response = await getClasses();
+      setClasses(response.data || []);
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Failed to fetch classes');
+    }
+  };
+
   useEffect(() => {
     fetchStudents();
     fetchMajors();
-    console.log("majorsLoading", majorsLoading);
-    
+    fetchClasses();
   }, [user?.schoolId, page]);
 
   const handleAddStudent = async (studentData: { 
@@ -80,17 +92,16 @@ const StudentsPage: React.FC = () => {
     studentId: string; 
     cardId: string; 
     majorId: string; 
-    class: string; 
+    classId: string; 
     dateOfBirth: string; 
     email: string; 
     phone?: string; 
     profileUrl?: string; 
     isActive: boolean; 
-    enrollmentDate: string; 
+    enrollmentYear: number; 
   }) => {
 
     if (!user?.schoolId) return;
-    console.log("We got this error in creating student", studentData);
     setAddLoading(true);
     try {
       const response = await createStudent({
@@ -100,18 +111,13 @@ const StudentsPage: React.FC = () => {
 
       if (response.success === true) {
       toast.success('Student created successfully!');
-        // Refresh the students list to get the newly added student
         await fetchStudents();
-        // Close the modal only after successful response and refresh
       } else {
-        toast.error(response.data.message);
-        console.log("We got this error in creating student", response);
+        toast.error((response as any).data?.message || 'Failed to create student');
       }
       setIsAddModalOpen(false);
     } catch (err: any) {
-      console.log("We got this error in creating student", err.response.data.message);
-      toast.error(err.response.data.message || 'Failed to create student');
-      // Don't close modal on error - let user try again
+      toast.error(err.response?.data?.message || 'Failed to create student');
     } finally {
       setAddLoading(false);
     }
@@ -121,23 +127,22 @@ const StudentsPage: React.FC = () => {
     name: string; 
     studentId: string; 
     cardId: string; 
-    class: string; 
+    classId: string; 
     dateOfBirth: string; 
     email: string; 
     phone?: string; 
     isActive: boolean; 
+    enrollmentYear: number;
   }) => {
     if (!selectedStudent) return;
     setEditLoading(true);
     try {
       await updateStudent(selectedStudent._id, studentData);
       toast.success('Student updated successfully!');
-      // Refresh the students list
       await fetchStudents();
       setIsEditModalOpen(false);
       setSelectedStudent(null);
     } catch (err) {
-      console.log("Failed to update student", err);
       toast.error('Failed to update student');
     } finally {
       setEditLoading(false);
@@ -204,17 +209,17 @@ const StudentsPage: React.FC = () => {
         'Class',
         'Email',
         'Status',
-        'Enrollment Date',
+        'Joining year',
       ]],
       body: filteredStudents.map(student => [
         student.name,
         student.studentId,
         student.cardId,
         (student.majorId as Major).name,
-        student.class,
+        (student as any).classId?.name ?? student.class,
         student.email,
         student.isActive ? 'Active' : 'Inactive',
-        new Date(student.enrollmentDate).toLocaleDateString(),
+        student.enrollmentYear ?? (student.enrollmentDate ? new Date(student.enrollmentDate).getFullYear() : '-'),
       ]),
       styles: { fontSize: 10 },
       headStyles: { fillColor: [59, 130, 246] },
@@ -331,7 +336,7 @@ const StudentsPage: React.FC = () => {
                     <th className="py-3 px-4 font-semibold">Email</th>
                     <th className="py-3 px-4 font-semibold">Age</th>
                     <th className="py-3 px-4 font-semibold">Status</th>
-                    <th className="py-3 px-4 font-semibold">Enrollment Date</th>
+                    <th className="py-3 px-4 font-semibold">Joining year</th>
                     <th className="py-3 px-4 font-semibold">Actions</th>
                   </tr>
                 </thead>
@@ -347,7 +352,7 @@ const StudentsPage: React.FC = () => {
                       <td className="py-3 px-4 text-gray-600">{student.studentId}</td>
                       <td className="py-3 px-4 text-gray-600">{student.cardId}</td>
                       <td className="py-3 px-4 text-green-600 font-semibold">{(student.majorId as Major).name}</td>
-                      <td className="py-3 px-4 text-gray-600">{student.class}</td>
+                      <td className="py-3 px-4 text-gray-600">{(student as any).classId?.name ?? student.class}</td>
                       <td className="py-3 px-4 text-gray-600">{student.email}</td>
                       <td className="py-3 px-4 text-gray-600">{calculateAge(student.dateOfBirth)}</td>
                       <td className="py-3 px-4">
@@ -360,7 +365,7 @@ const StudentsPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-gray-600">
-                        {new Date(student.enrollmentDate).toLocaleDateString()}
+                        {student.enrollmentYear ?? (student.enrollmentDate ? new Date(student.enrollmentDate).getFullYear() : '—')}
                       </td>
                       <td className="py-3 px-4 flex gap-2">
                         <button
@@ -429,6 +434,7 @@ const StudentsPage: React.FC = () => {
           onClose={() => setIsAddModalOpen(false)}
           onSubmit={handleAddStudent}
           majors={majors}
+          classes={classes}
           loading={addLoading}
         />
 
@@ -441,6 +447,7 @@ const StudentsPage: React.FC = () => {
           }}
           onSubmit={handleEditStudent}
           majors={majors}
+          classes={classes}
           initialData={selectedStudent}
           isEdit={true}
           loading={editLoading}

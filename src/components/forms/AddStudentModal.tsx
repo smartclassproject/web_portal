@@ -1,71 +1,78 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 import type { Student, Major } from '../../types';
+import type { ClassItem } from '../../services/classService';
 
 interface AddStudentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (studentData: { 
-    name: string; 
-    studentId: string; 
-    cardId: string; 
-    majorId: string; 
-    class: string; 
-    dateOfBirth: string; 
-    email: string; 
-    phone?: string; 
-    profileUrl?: string; 
-    isActive: boolean; 
-    enrollmentDate: string; 
+  onSubmit: (studentData: {
+    name: string;
+    studentId: string;
+    cardId: string;
+    majorId: string;
+    classId: string;
+    dateOfBirth: string;
+    email: string;
+    phone?: string;
+    profileUrl?: string;
+    isActive: boolean;
+    enrollmentYear: number;
   }) => void;
   majors: Major[];
+  classes: ClassItem[];
   initialData?: Student | null;
   isEdit?: boolean;
   loading?: boolean;
 }
 
-const AddStudentModal: React.FC<AddStudentModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  onSubmit, 
-  majors, 
-  initialData, 
-  isEdit = false, 
-  loading = false 
+const AddStudentModal: React.FC<AddStudentModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  majors,
+  classes,
+  initialData,
+  isEdit = false,
+  loading = false
 }) => {
+  const currentYear = new Date().getFullYear();
   const [formData, setFormData] = useState({
     name: '',
     studentId: '',
     cardId: '',
     majorId: '',
-    class: '',
+    classId: '',
     dateOfBirth: '',
     email: '',
     phone: '',
     profileUrl: '',
     isActive: true,
-    enrollmentDate: '',
+    enrollmentYear: currentYear,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-
-  console.log("initialData", initialData);
 
   // Populate form with initial data when editing
   useEffect(() => {
     if (initialData && isEdit) {
+      const majorId = typeof initialData.majorId === 'object' && initialData.majorId !== null
+        ? (initialData.majorId as { _id: string })._id
+        : (initialData.majorId as string);
+      const classId = typeof (initialData as any).classId === 'object' && (initialData as any).classId !== null
+        ? ((initialData as any).classId as { _id: string })._id
+        : ((initialData as any).classId as string) || '';
       setFormData({
         name: initialData.name,
         studentId: initialData.studentId,
         cardId: initialData.cardId,
-        majorId: (initialData.majorId as Major).id as string,
-        class: initialData.class,
-        dateOfBirth: initialData.dateOfBirth.split('T')[0],
+        majorId: majorId || '',
+        classId: classId || '',
+        dateOfBirth: initialData.dateOfBirth?.split?.('T')[0] || '',
         email: initialData.email,
         phone: initialData.phone || '',
         profileUrl: initialData.profileUrl || '',
         isActive: initialData.isActive,
-        enrollmentDate: initialData.enrollmentDate.split('T')[0],
+        enrollmentYear: (initialData as any).enrollmentYear || currentYear,
       });
     }
   }, [initialData, isEdit]);
@@ -105,8 +112,8 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
       newErrors.majorId = 'Major is required';
     }
 
-    if (!formData.class.trim()) {
-      newErrors.class = 'Class is required';
+    if (!formData.classId) {
+      newErrors.classId = 'Class is required';
     }
 
     if (!formData.dateOfBirth) {
@@ -115,12 +122,8 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
 
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(formData.email)) {
+    } else     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(formData.email)) {
       newErrors.email = 'Invalid email format';
-    }
-
-    if (!formData.enrollmentDate) {
-      newErrors.enrollmentDate = 'Enrollment Date is required';
     }
 
     setErrors(newErrors);
@@ -129,20 +132,20 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (validateForm()) {
       onSubmit({
         name: formData.name.trim(),
         studentId: formData.studentId.trim(),
         cardId: formData.cardId.trim(),
         majorId: formData.majorId,
-        class: formData.class.trim(),
+        classId: formData.classId,
         dateOfBirth: formData.dateOfBirth,
         email: formData.email.trim(),
         phone: formData.phone.trim() || undefined,
         profileUrl: formData.profileUrl.trim() || undefined,
         isActive: formData.isActive,
-        enrollmentDate: formData.enrollmentDate,
+        enrollmentYear: formData.enrollmentYear,
       });
       
       // Don't close modal here - let parent component handle it after API response
@@ -172,13 +175,13 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
         studentId: '',
         cardId: '',
         majorId: '',
-        class: '',
+        classId: '',
         dateOfBirth: '',
         email: '',
         phone: '',
         profileUrl: '',
         isActive: true,
-        enrollmentDate: '',
+        enrollmentYear: currentYear,
       });
       setErrors({});
     }
@@ -272,21 +275,26 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
 
           {/* Class */}
           <div>
-            <label htmlFor="class" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="classId" className="block text-sm font-medium text-gray-700 mb-2">
               Class *
             </label>
-            <input
-              type="text"
-              id="class"
-              name="class"
-              value={formData.class}
+            <select
+              id="classId"
+              name="classId"
+              value={formData.classId}
               onChange={handleChange}
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.class ? 'border-red-500' : 'border-gray-300'
+                errors.classId ? 'border-red-500' : 'border-gray-300'
               }`}
-              placeholder="e.g., A, B, C"
-            />
-            {errors.class && <p className="mt-1 text-sm text-red-600">{errors.class}</p>}
+            >
+              <option value="">Select a class</option>
+              {classes.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.name} {c.code ? `(${c.code})` : ''}
+                </option>
+              ))}
+            </select>
+            {errors.classId && <p className="mt-1 text-sm text-red-600">{errors.classId}</p>}
           </div>
 
           {/* Date of Birth */}
@@ -342,22 +350,25 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
             />
           </div>
 
-          {/* Enrollment Date */}
+          {/* Joining year (enrollment year) */}
           <div>
-            <label htmlFor="enrollmentDate" className="block text-sm font-medium text-gray-700 mb-2">
-              Enrollment Date *
+            <label htmlFor="enrollmentYear" className="block text-sm font-medium text-gray-700 mb-2">
+              Joining year *
             </label>
-            <input
-              type="date"
-              id="enrollmentDate"
-              name="enrollmentDate"
-              value={formData.enrollmentDate}
-              onChange={handleChange}
+            <select
+              id="enrollmentYear"
+              name="enrollmentYear"
+              value={formData.enrollmentYear}
+              onChange={(e) => setFormData({ ...formData, enrollmentYear: parseInt(e.target.value, 10) })}
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.enrollmentDate ? 'border-red-500' : 'border-gray-300'
+                errors.enrollmentYear ? 'border-red-500' : 'border-gray-300'
               }`}
-            />
-            {errors.enrollmentDate && <p className="mt-1 text-sm text-red-600">{errors.enrollmentDate}</p>}
+            >
+              {Array.from({ length: 25 }, (_, i) => currentYear - 10 + i).map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">Year the student joined the school</p>
           </div>
 
           {/* Profile URL */}
