@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import logo from '../../assets/logo.png';
 
 interface MenuItem {
   name: string;
@@ -260,24 +261,24 @@ const Sidebar: React.FC = () => {
   );
 
   return (
-    <div className="bg-white shadow-lg w-64 min-h-screen">
+    <div className="bg-white shadow-lg w-64 min-h-screen flex flex-col">
       {/* Logo */}
-      <div className="p-6 border-b border-gray-200">
+      <div className="px-6 border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center">
-          <div className="h-8 w-8 bg-green-600 rounded-lg flex items-center justify-center mr-3">
-            <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
+          <div className='flex items-center justify-center'>
+          {/* <div className="h-8 w-8 rounded-lg flex items-center justify-center mr-3 overflow-hidden bg-gray-900 flex-shrink-0"> */}
+            <img src={logo} alt="RiseMe" className="w-50 object-contain" />
+          {/* </div> */}
           </div>
-          <h1 className="text-xl font-bold text-gray-900">SmartClass</h1>
+          {/* <h1 className="text-xl font-bold text-gray-900">RiseMe</h1> */}
         </div>
-        <p className="text-sm text-gray-500 mt-1">
-          {user?.role === 'super_admin' ? 'Super Admin Portal' : user?.role === 'teacher' ? 'Teacher Portal' : 'School Admin Portal'}
+        <p className="text-sm text-gray-500 mt-1 text-center mb-3">
+          {user?.role === 'super_admin' ? 'Super Admin' : user?.role === 'teacher' ? 'Teacher Portal' : 'School Admin Portal'}
         </p>
       </div>
 
-      {/* Navigation */}
-      <nav className="p-4">
+      {/* Navigation - scrollable when many items */}
+      <nav className="p-4 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-34">
         <ul className="space-y-2">
           {filteredMenuItems.map((item) => (
             <li key={item.path}>
@@ -298,7 +299,7 @@ const Sidebar: React.FC = () => {
       </nav>
 
       {/* User Info and Logout */}
-      <div className="absolute bottom-0 w-64 p-4 border-t border-gray-200">
+      <div className="absolute bottom-0 w-64 p-4 border-t border-gray-200 bg-white">
         <div className="flex items-center mb-4">
           <div className="h-10 w-10 bg-blue-400 rounded-full flex items-center justify-center mr-3">
             <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

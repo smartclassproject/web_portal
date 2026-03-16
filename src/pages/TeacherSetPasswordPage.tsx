@@ -81,7 +81,7 @@ const TeacherSetPasswordPage: React.FC = () => {
         // Update auth context so redirect works without a full reload
         setUserFromToken(token, userWithoutPasswordChange);
 
-        toast.success('Password set successfully! Welcome to SmartClass.');
+        toast.success('Password set successfully! Welcome to RiseMe.');
         
         // Redirect to teacher dashboard
         navigate('/teacher/dashboard');
@@ -192,7 +192,7 @@ const TeacherSetPasswordPage: React.FC = () => {
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-sm text-gray-500">
-            &copy; 2026 SmartClass Portal. All rights reserved.
+            &copy; 2026 RiseMe Portal. All rights reserved.
           </p>
         </div>
       </div>

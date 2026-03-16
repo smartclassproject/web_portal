@@ -6,9 +6,18 @@
 @tailwind utilities;
 
 
+/* RiseMe brand: Blue #1E73BE, Green #4CAF50, Yellow #F4C430 */
 @theme {
-  --bg-primary: #43A047;
-  --bg-secondary: #64B5F6;
+  --color-blue-500: #1E73BE;
+  --color-blue-600: #1E73BE;
+  --color-blue-700: #1565A0;
+  --color-green-50: #E8F5E9;
+  --color-green-100: #C8E6C9;
+  --color-green-500: #4CAF50;
+  --color-green-600: #4CAF50;
+  --color-green-700: #43A047;
+  --bg-primary: #4CAF50;
+  --bg-secondary: #1E73BE;
   --bg-neutral: #E0E0E0;
   --bg-success: #4CAF50;
   --bg-error: #F44336;

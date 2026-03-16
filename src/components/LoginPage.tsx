@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useNavigate, Link } from 'react-router-dom';
+import logo from '../assets/logo.png';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -71,14 +72,9 @@ const LoginPage: React.FC = () => {
       <div className="max-w-md w-full mx-auto animate-fade-in">
         {/* Header Section */}
         <div className="text-center mb-8">
-          <div className="mx-auto h-20 w-20 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg mb-6 transform hover:scale-105 transition-transform duration-300">
-            <svg className="h-10 w-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
+          <div className="mx-auto  w-52 flex items-center justify-center  transform hover:scale-105 transition-transform duration-300 overflow-hidden">
+            <img src={logo} alt="RiseMe" className="h-full w-full object-contain p-1" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-3 bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-            SmartClass Portal
-          </h1>
           <p className="text-lg text-gray-600 mb-2">
             Welcome Back
           </p>
@@ -171,7 +167,7 @@ const LoginPage: React.FC = () => {
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-sm text-gray-500">
-            &copy; 2026 SmartClass Portal. All rights reserved.
+            &copy; 2026 RiseMe Portal. All rights reserved.
           </p>
         </div>
       </div>
