@@ -272,8 +272,8 @@ const Sidebar: React.FC = () => {
           </div>
           {/* <h1 className="text-xl font-bold text-gray-900">RiseMe</h1> */}
         </div>
-        <p className="text-sm text-gray-500 mt-1 text-center mb-3">
-          {user?.role === 'super_admin' ? 'Super Admin' : user?.role === 'teacher' ? 'Teacher Portal' : 'School Admin Portal'}
+        <p className="text-xs font-semibold text-black-500 mt-1 text-center mb-3">
+          {user?.role === 'super_admin' ? 'Super Admin' : user?.role === 'teacher' ? 'Teacher Portal' : 'School Admin'}
         </p>
       </div>
 
