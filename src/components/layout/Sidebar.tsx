@@ -171,6 +171,36 @@ const Sidebar: React.FC = () => {
       roles: ['school_admin']
     },
     {
+      name: 'School Fees',
+      path: '/school/fees',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V6m0 12v-2m9-4a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+      roles: ['school_admin']
+    },
+    {
+      name: 'Announcements',
+      path: '/school/announcements',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1 1 0 001.447.894L18 17h2a1 1 0 001-1V8a1 1 0 00-1-1h-2l-5.553-3.134A1 1 0 0011 4.76v1.122zM7 14H4a1 1 0 01-1-1v-2a1 1 0 011-1h3v4z" />
+        </svg>
+      ),
+      roles: ['school_admin']
+    },
+    {
+      name: 'Inquiries',
+      path: '/school/inquiries',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-4 4v-4z" />
+        </svg>
+      ),
+      roles: ['school_admin']
+    },
+    {
       name: 'Settings',
       path: '/school/settings',
       icon: (

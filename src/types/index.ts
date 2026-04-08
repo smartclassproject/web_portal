@@ -70,6 +70,9 @@ export interface Student {
   dateOfBirth: string;
   email: string;
   phone?: string;
+  parentFirstName?: string;
+  parentLastName?: string;
+  parentPhoneNumber?: string;
   profileUrl?: string;
   isActive: boolean;
   enrollmentDate?: string;

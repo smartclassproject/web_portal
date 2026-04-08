@@ -15,6 +15,9 @@ interface AddStudentModalProps {
     dateOfBirth: string;
     email: string;
     phone?: string;
+    parentFirstName?: string;
+    parentLastName?: string;
+    parentPhoneNumber?: string;
     profileUrl?: string;
     isActive: boolean;
     enrollmentYear: number;
@@ -46,6 +49,9 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
     dateOfBirth: '',
     email: '',
     phone: '',
+    parentFirstName: '',
+    parentLastName: '',
+    parentPhoneNumber: '',
     profileUrl: '',
     isActive: true,
     enrollmentYear: currentYear,
@@ -70,6 +76,9 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
         dateOfBirth: initialData.dateOfBirth?.split?.('T')[0] || '',
         email: initialData.email,
         phone: initialData.phone || '',
+        parentFirstName: (initialData as any).parentFirstName || '',
+        parentLastName: (initialData as any).parentLastName || '',
+        parentPhoneNumber: (initialData as any).parentPhoneNumber || '',
         profileUrl: initialData.profileUrl || '',
         isActive: initialData.isActive,
         enrollmentYear: (initialData as any).enrollmentYear || currentYear,
@@ -143,6 +152,9 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
         dateOfBirth: formData.dateOfBirth,
         email: formData.email.trim(),
         phone: formData.phone.trim() || undefined,
+        parentFirstName: formData.parentFirstName.trim() || undefined,
+        parentLastName: formData.parentLastName.trim() || undefined,
+        parentPhoneNumber: formData.parentPhoneNumber.trim() || undefined,
         profileUrl: formData.profileUrl.trim() || undefined,
         isActive: formData.isActive,
         enrollmentYear: formData.enrollmentYear,
@@ -179,6 +191,9 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
         dateOfBirth: '',
         email: '',
         phone: '',
+        parentFirstName: '',
+        parentLastName: '',
+        parentPhoneNumber: '',
         profileUrl: '',
         isActive: true,
         enrollmentYear: currentYear,
@@ -347,6 +362,54 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="e.g., +1234567890"
+            />
+          </div>
+
+          {/* Parent First Name */}
+          <div>
+            <label htmlFor="parentFirstName" className="block text-sm font-medium text-gray-700 mb-2">
+              Parent First Name
+            </label>
+            <input
+              type="text"
+              id="parentFirstName"
+              name="parentFirstName"
+              value={formData.parentFirstName}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="e.g., Grace"
+            />
+          </div>
+
+          {/* Parent Last Name */}
+          <div>
+            <label htmlFor="parentLastName" className="block text-sm font-medium text-gray-700 mb-2">
+              Parent Last Name
+            </label>
+            <input
+              type="text"
+              id="parentLastName"
+              name="parentLastName"
+              value={formData.parentLastName}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="e.g., Uwase"
+            />
+          </div>
+
+          {/* Parent Phone Number */}
+          <div>
+            <label htmlFor="parentPhoneNumber" className="block text-sm font-medium text-gray-700 mb-2">
+              Parent Phone Number
+            </label>
+            <input
+              type="tel"
+              id="parentPhoneNumber"
+              name="parentPhoneNumber"
+              value={formData.parentPhoneNumber}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="e.g., +2507XXXXXXXX"
             />
           </div>
 

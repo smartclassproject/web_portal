@@ -96,6 +96,9 @@ const StudentsPage: React.FC = () => {
     dateOfBirth: string; 
     email: string; 
     phone?: string; 
+    parentFirstName?: string;
+    parentLastName?: string;
+    parentPhoneNumber?: string;
     profileUrl?: string; 
     isActive: boolean; 
     enrollmentYear: number; 
@@ -131,6 +134,9 @@ const StudentsPage: React.FC = () => {
     dateOfBirth: string; 
     email: string; 
     phone?: string; 
+    parentFirstName?: string;
+    parentLastName?: string;
+    parentPhoneNumber?: string;
     isActive: boolean; 
     enrollmentYear: number;
   }) => {

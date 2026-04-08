@@ -15,6 +15,9 @@ export const createStudent = async (student: {
   dateOfBirth: string; 
   email: string; 
   phone?: string; 
+  parentFirstName?: string;
+  parentLastName?: string;
+  parentPhoneNumber?: string;
   profileUrl?: string; 
   isActive: boolean; 
   enrollmentYear: number;
@@ -32,6 +35,9 @@ export const updateStudent = async (id: string, student: {
   dateOfBirth: string; 
   email: string; 
   phone?: string; 
+  parentFirstName?: string;
+  parentLastName?: string;
+  parentPhoneNumber?: string;
   isActive: boolean; 
   enrollmentYear?: number;
 }) => {

@@ -26,6 +26,9 @@ import TeacherMaterialsPage from './pages/teacher/TeacherMaterialsPage';
 import TeacherTermResultsPage from './pages/teacher/TeacherTermResultsPage';
 import SchoolSettingsPage from './pages/school/SchoolSettingsPage';
 import ReportCardsPage from './pages/school/ReportCardsPage';
+import FeesPage from './pages/school/FeesPage';
+import AnnouncementsPage from './pages/school/AnnouncementsPage';
+import InquiriesPage from './pages/school/InquiriesPage';
 import './index.css';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import TeacherSetPasswordPage from './pages/TeacherSetPasswordPage';
@@ -180,6 +183,32 @@ const App: React.FC = () => {
               </RequireAuth>
             }
           />
+
+          <Route
+            path="/school/fees"
+            element={
+              <RequireAuth role="school_admin">
+                <FeesPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/school/announcements"
+            element={
+              <RequireAuth role="school_admin">
+                <AnnouncementsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/school/inquiries"
+            element={
+              <RequireAuth role="school_admin">
+                <InquiriesPage />
+              </RequireAuth>
+            }
+          />
+
           <Route
             path="/school/settings"
             element={
