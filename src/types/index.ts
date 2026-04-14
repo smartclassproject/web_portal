@@ -1,10 +1,16 @@
 import type { ReactNode } from "react";
 
 // Database Schema Types
+export type EnrollmentSeason = "fall" | "spring" | "summer" | "winter";
+
 export interface School {
   _id: string;
   name: string;
   location: string;
+  shortCode?: string;
+  numberOfTerms?: number;
+  enrollmentSemestersEnabled?: EnrollmentSeason[];
+  defaultEnrollmentSemester?: EnrollmentSeason | null;
   createdAt: string;
 }
 
@@ -63,12 +69,12 @@ export interface Student {
   schoolId: string;
   name: string;
   studentId: string;
-  cardId: string;
+  cardId?: string;
   majorId: string | Major;
   class: string;
   classId?: string | { _id: string; name: string; code?: string };
   dateOfBirth: string;
-  email: string;
+  email?: string;
   phone?: string;
   parentFirstName?: string;
   parentLastName?: string;
@@ -77,6 +83,14 @@ export interface Student {
   isActive: boolean;
   enrollmentDate?: string;
   enrollmentYear?: number;
+  academicYear?: number;
+  /** Grading term index (1…school.numberOfTerms) for exams and report cards. */
+  entryTerm?: number;
+  /** Registration intake season (Fall, Spring, …). */
+  enrollmentSeason?: EnrollmentSeason;
+  /** Cohort year for display, e.g. Fall 2026. */
+  enrollmentCohortYear?: number;
+  gender?: string;
   createdAt: string;
 }
 

@@ -2,10 +2,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { defineConfig, devices } from '@playwright/test';
 
-// Load .env.local so tests can use SUPER_ADMIN_EMAIL, SCHOOL_ADMIN_EMAIL, TEACHER_EMAIL, etc.
+// Load .env.local/.env so tests can use SUPER_ADMIN_EMAIL, SCHOOL_ADMIN_EMAIL, TEACHER_EMAIL, etc.
 import dotenv from 'dotenv';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env.local') });
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173';
 /** Start Vite automatically when using default port (so `pnpm screenshots` works without a separate terminal). */

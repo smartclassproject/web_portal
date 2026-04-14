@@ -25,6 +25,9 @@ import TeacherStudentsPage from './pages/teacher/TeacherStudentsPage';
 import TeacherMaterialsPage from './pages/teacher/TeacherMaterialsPage';
 import TeacherTermResultsPage from './pages/teacher/TeacherTermResultsPage';
 import SchoolSettingsPage from './pages/school/SchoolSettingsPage';
+import SchoolAccountPage from './pages/school/SchoolAccountPage';
+import TeacherAccountPage from './pages/teacher/TeacherAccountPage';
+import AdminAccountPage from './pages/admin/AdminAccountPage';
 import ReportCardsPage from './pages/school/ReportCardsPage';
 import FeesPage from './pages/school/FeesPage';
 import AnnouncementsPage from './pages/school/AnnouncementsPage';
@@ -100,6 +103,14 @@ const App: React.FC = () => {
             element={
               <RequireAuth role="super_admin">
                 <AdminDevicesPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/account"
+            element={
+              <RequireAuth role="super_admin">
+                <AdminAccountPage />
               </RequireAuth>
             }
           />
@@ -218,6 +229,14 @@ const App: React.FC = () => {
             }
           />
           <Route
+            path="/school/account"
+            element={
+              <RequireAuth role="school_admin">
+                <SchoolAccountPage />
+              </RequireAuth>
+            }
+          />
+          <Route
             path="/teacher/dashboard"
             element={
               <RequireAuth role="teacher">
@@ -270,6 +289,14 @@ const App: React.FC = () => {
             element={
               <RequireAuth role="teacher">
                 <TeacherTermResultsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/teacher/account"
+            element={
+              <RequireAuth role="teacher">
+                <TeacherAccountPage />
               </RequireAuth>
             }
           />

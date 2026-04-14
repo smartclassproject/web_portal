@@ -4,14 +4,33 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import AddStudentModal from '../../components/forms/AddStudentModal';
+import type { StudentFormSubmitValues } from '../../components/forms/AddStudentModal';
 import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../contexts/AuthContext';
 import { getSchoolStudents, createStudent, updateStudent, deleteStudent } from '../../services/studentService';
+import { getMySchool } from '../../services/schoolService';
 import { getSchoolMajors } from '../../services/majorService';
+import { publicUploadUrl } from '../../utils/publicUploadUrl';
 import { getClasses } from '../../services/classService';
-import type { Student, Major } from '../../types';
+import type { Student, Major, EnrollmentSeason } from '../../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+
+const SEASON_LABELS: Record<EnrollmentSeason, string> = {
+  fall: 'Fall',
+  spring: 'Spring',
+  summer: 'Summer',
+  winter: 'Winter',
+};
+
+function formatEnrollmentLine(student: Student): string {
+  const s = student.enrollmentSeason;
+  const y = student.enrollmentCohortYear ?? student.academicYear ?? student.enrollmentYear;
+  if (!s || !y) return '—';
+  const key = String(s).toLowerCase() as EnrollmentSeason;
+  const label = SEASON_LABELS[key] ?? s;
+  return `${label} ${y}`;
+}
 
 const StudentsPage: React.FC = () => {
   const { user } = useAuth();
@@ -32,12 +51,34 @@ const StudentsPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
+  const [numberOfTerms, setNumberOfTerms] = useState(3);
+  const [enrollmentSemestersEnabled, setEnrollmentSemestersEnabled] = useState<string[]>([
+    'fall',
+    'spring',
+    'summer',
+    'winter',
+  ]);
+  const [defaultEnrollmentSemester, setDefaultEnrollmentSemester] = useState<string | null>(null);
+  const [openingAddModal, setOpeningAddModal] = useState(false);
+
+  const handleOpenAddStudent = async () => {
+    if (!user?.schoolId) return;
+    setOpeningAddModal(true);
+    try {
+      await fetchSchoolTerms();
+      setIsAddModalOpen(true);
+    } catch {
+      toast.error('Could not load school settings');
+    } finally {
+      setOpeningAddModal(false);
+    }
+  };
 
   const filteredStudents = students.filter(s => 
     s.name.toLowerCase().includes(search.toLowerCase()) || 
     s.studentId.toLowerCase().includes(search.toLowerCase()) ||
-    s.cardId.toLowerCase().includes(search.toLowerCase()) ||
-    s.email.toLowerCase().includes(search.toLowerCase())
+    (s.cardId && s.cardId.toLowerCase().includes(search.toLowerCase())) ||
+    (s.email && s.email.toLowerCase().includes(search.toLowerCase()))
   );
 
   const fetchStudents = async () => {
@@ -47,7 +88,8 @@ const StudentsPage: React.FC = () => {
     try {
       const response = await getSchoolStudents(page, limit);
       setStudents(response.data || []);
-      setTotalPages(response.totalPages || 1);
+      const pages = response.pagination?.pages ?? response.totalPages ?? 1;
+      setTotalPages(typeof pages === 'number' ? pages : 1);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch students');
       toast.error('Failed to fetch students');
@@ -81,39 +123,46 @@ const StudentsPage: React.FC = () => {
     }
   };
 
+  const fetchSchoolTerms = async () => {
+    if (!user?.schoolId) return;
+    try {
+      const res = await getMySchool();
+      const data = res.data ?? res;
+      setNumberOfTerms(data?.numberOfTerms ?? 3);
+      const raw = data?.enrollmentSemestersEnabled;
+      const normalized =
+        Array.isArray(raw) && raw.length > 0
+          ? raw.map((s: string) => String(s).toLowerCase())
+          : ['fall', 'spring', 'summer', 'winter'];
+      setEnrollmentSemestersEnabled(normalized);
+      setDefaultEnrollmentSemester(
+        data?.defaultEnrollmentSemester ? String(data.defaultEnrollmentSemester).toLowerCase() : null
+      );
+    } catch {
+      /* optional */
+    }
+  };
+
   useEffect(() => {
     fetchStudents();
     fetchMajors();
     fetchClasses();
+    fetchSchoolTerms();
   }, [user?.schoolId, page]);
 
-  const handleAddStudent = async (studentData: { 
-    name: string; 
-    studentId: string; 
-    cardId: string; 
-    majorId: string; 
-    classId: string; 
-    dateOfBirth: string; 
-    email: string; 
-    phone?: string; 
-    parentFirstName?: string;
-    parentLastName?: string;
-    parentPhoneNumber?: string;
-    profileUrl?: string; 
-    isActive: boolean; 
-    enrollmentYear: number; 
-  }) => {
-
+  const handleAddStudent = async (studentData: StudentFormSubmitValues) => {
     if (!user?.schoolId) return;
     setAddLoading(true);
     try {
       const response = await createStudent({
-        schoolId: user.schoolId,
         ...studentData,
+        enrollmentYear: studentData.academicYear,
+        enrollmentCohortYear: studentData.academicYear,
+        academicYear: studentData.academicYear,
       });
 
       if (response.success === true) {
-      toast.success('Student created successfully!');
+        toast.success('Student created successfully!');
         await fetchStudents();
       } else {
         toast.error((response as any).data?.message || 'Failed to create student');
@@ -126,24 +175,30 @@ const StudentsPage: React.FC = () => {
     }
   };
 
-  const handleEditStudent = async (studentData: { 
-    name: string; 
-    studentId: string; 
-    cardId: string; 
-    classId: string; 
-    dateOfBirth: string; 
-    email: string; 
-    phone?: string; 
-    parentFirstName?: string;
-    parentLastName?: string;
-    parentPhoneNumber?: string;
-    isActive: boolean; 
-    enrollmentYear: number;
-  }) => {
+  const handleEditStudent = async (studentData: StudentFormSubmitValues) => {
     if (!selectedStudent) return;
     setEditLoading(true);
     try {
-      await updateStudent(selectedStudent._id, studentData);
+      await updateStudent(selectedStudent._id, {
+        name: studentData.name,
+        cardId: studentData.cardId,
+        majorId: studentData.majorId,
+        classId: studentData.classId,
+        dateOfBirth: studentData.dateOfBirth,
+        email: studentData.email,
+        phone: studentData.phone,
+        parentFirstName: studentData.parentFirstName,
+        parentLastName: studentData.parentLastName,
+        parentPhoneNumber: studentData.parentPhoneNumber,
+        isActive: studentData.isActive,
+        enrollmentYear: studentData.academicYear,
+        academicYear: studentData.academicYear,
+        enrollmentCohortYear: studentData.academicYear,
+        gender: studentData.gender,
+        entryTerm: studentData.entryTerm,
+        enrollmentSeason: studentData.enrollmentSeason,
+        profileUrl: studentData.profileUrl,
+      });
       toast.success('Student updated successfully!');
       await fetchStudents();
       setIsEditModalOpen(false);
@@ -215,17 +270,21 @@ const StudentsPage: React.FC = () => {
         'Class',
         'Email',
         'Status',
-        'Joining year',
+        'Academic year',
+        'Enrollment',
+        'Term',
       ]],
       body: filteredStudents.map(student => [
         student.name,
         student.studentId,
-        student.cardId,
+        student.cardId ?? '—',
         (student.majorId as Major).name,
         (student as any).classId?.name ?? student.class,
-        student.email,
+        student.email ?? '—',
         student.isActive ? 'Active' : 'Inactive',
-        student.enrollmentYear ?? (student.enrollmentDate ? new Date(student.enrollmentDate).getFullYear() : '-'),
+        student.academicYear ?? student.enrollmentYear ?? (student.enrollmentDate ? new Date(student.enrollmentDate).getFullYear() : '-'),
+        formatEnrollmentLine(student),
+        student.entryTerm ?? (student as unknown as { semester?: number }).semester ?? '—',
       ]),
       styles: { fontSize: 10 },
       headStyles: { fillColor: [59, 130, 246] },
@@ -271,14 +330,14 @@ const StudentsPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Students</h1>
           <div className="flex gap-2">
             <button 
-              onClick={() => setIsAddModalOpen(true)}
-              disabled={addLoading}
+              onClick={handleOpenAddStudent}
+              disabled={addLoading || openingAddModal}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold shadow flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {addLoading ? (
+              {addLoading || openingAddModal ? (
                 <>
                   <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-                  Adding...
+                  {openingAddModal ? 'Opening…' : 'Adding...'}
                 </>
               ) : (
                 <>
@@ -322,10 +381,18 @@ const StudentsPage: React.FC = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-2">No students found</h3>
             <p className="text-gray-500 mb-4">Get started by adding your first student.</p>
             <button 
-              onClick={() => setIsAddModalOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold"
+              onClick={handleOpenAddStudent}
+              disabled={addLoading || openingAddModal}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold disabled:opacity-50 flex items-center justify-center gap-2 mx-auto"
             >
-              Add Student
+              {openingAddModal ? (
+                <>
+                  <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  Opening…
+                </>
+              ) : (
+                'Add Student'
+              )}
             </button>
           </div>
         ) : (
@@ -342,7 +409,9 @@ const StudentsPage: React.FC = () => {
                     <th className="py-3 px-4 font-semibold">Email</th>
                     <th className="py-3 px-4 font-semibold">Age</th>
                     <th className="py-3 px-4 font-semibold">Status</th>
-                    <th className="py-3 px-4 font-semibold">Joining year</th>
+                    <th className="py-3 px-4 font-semibold">Academic year</th>
+                    <th className="py-3 px-4 font-semibold">Enrollment</th>
+                    <th className="py-3 px-4 font-semibold">Term</th>
                     <th className="py-3 px-4 font-semibold">Actions</th>
                   </tr>
                 </thead>
@@ -350,16 +419,24 @@ const StudentsPage: React.FC = () => {
                   {filteredStudents.map((student) => (
                     <tr key={student._id} className="group border-b last:border-b-0 border-gray-100 hover:bg-blue-50 transition">
                       <td className="py-3 px-4 font-medium text-gray-900 flex items-center gap-3">
-                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-tr from-blue-400 to-blue-600 text-white font-bold shadow-sm">
-                          {student.name.split(' ').map(n => n[0]).join('').slice(0,2)}
-                        </span>
+                        {student.profileUrl ? (
+                          <img
+                            src={publicUploadUrl(student.profileUrl)}
+                            alt=""
+                            className="h-9 w-9 rounded-lg object-cover border border-gray-200"
+                          />
+                        ) : (
+                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-tr from-blue-400 to-blue-600 text-white font-bold shadow-sm">
+                            {student.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          </span>
+                        )}
                         <span>{student.name}</span>
                       </td>
                       <td className="py-3 px-4 text-gray-600">{student.studentId}</td>
-                      <td className="py-3 px-4 text-gray-600">{student.cardId}</td>
+                      <td className="py-3 px-4 text-gray-600">{student.cardId ?? '—'}</td>
                       <td className="py-3 px-4 text-green-600 font-semibold">{(student.majorId as Major).name}</td>
                       <td className="py-3 px-4 text-gray-600">{(student as any).classId?.name ?? student.class}</td>
-                      <td className="py-3 px-4 text-gray-600">{student.email}</td>
+                      <td className="py-3 px-4 text-gray-600">{student.email ?? '—'}</td>
                       <td className="py-3 px-4 text-gray-600">{calculateAge(student.dateOfBirth)}</td>
                       <td className="py-3 px-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -371,7 +448,11 @@ const StudentsPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-gray-600">
-                        {student.enrollmentYear ?? (student.enrollmentDate ? new Date(student.enrollmentDate).getFullYear() : '—')}
+                        {student.academicYear ?? student.enrollmentYear ?? (student.enrollmentDate ? new Date(student.enrollmentDate).getFullYear() : '—')}
+                      </td>
+                      <td className="py-3 px-4 text-gray-600">{formatEnrollmentLine(student)}</td>
+                      <td className="py-3 px-4 text-gray-600">
+                        {student.entryTerm ?? (student as unknown as { semester?: number }).semester ?? '—'}
                       </td>
                       <td className="py-3 px-4 flex gap-2">
                         <button
@@ -441,6 +522,9 @@ const StudentsPage: React.FC = () => {
           onSubmit={handleAddStudent}
           majors={majors}
           classes={classes}
+          numberOfTerms={numberOfTerms}
+          enrollmentSemestersEnabled={enrollmentSemestersEnabled}
+          defaultEnrollmentSemester={defaultEnrollmentSemester}
           loading={addLoading}
         />
 
@@ -454,6 +538,9 @@ const StudentsPage: React.FC = () => {
           onSubmit={handleEditStudent}
           majors={majors}
           classes={classes}
+          numberOfTerms={numberOfTerms}
+          enrollmentSemestersEnabled={enrollmentSemestersEnabled}
+          defaultEnrollmentSemester={defaultEnrollmentSemester}
           initialData={selectedStudent}
           isEdit={true}
           loading={editLoading}

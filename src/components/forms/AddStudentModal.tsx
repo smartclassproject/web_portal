@@ -1,33 +1,71 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { format, subYears } from 'date-fns';
 import Modal from '../ui/Modal';
-import type { Student, Major } from '../../types';
+import type { Student, Major, EnrollmentSeason } from '../../types';
 import type { ClassItem } from '../../services/classService';
+import { uploadStudentPhoto } from '../../services/studentService';
+import { publicUploadUrl } from '../../utils/publicUploadUrl';
+
+/** Default DOB for “Add student”: ~15 years old (eligible vs backend 10–100 year rule). */
+function defaultDateOfBirthFifteenYearsAgo(): string {
+  return format(subYears(new Date(), 15), 'yyyy-MM-dd');
+}
+
+const SEASON_LABELS: Record<EnrollmentSeason, string> = {
+  fall: 'Fall',
+  spring: 'Spring',
+  summer: 'Summer',
+  winter: 'Winter',
+};
+
+function pickDefaultEnrollmentSeason(
+  enabled: string[],
+  def: string | null | undefined
+): EnrollmentSeason {
+  const list = (enabled.length ? enabled : ['fall', 'spring', 'summer', 'winter']) as EnrollmentSeason[];
+  const d = def && list.includes(def as EnrollmentSeason) ? (def as EnrollmentSeason) : list[0];
+  return d;
+}
+
+export interface StudentFormSubmitValues {
+  name: string;
+  cardId?: string;
+  majorId: string;
+  classId: string;
+  dateOfBirth: string;
+  email?: string;
+  phone?: string;
+  parentFirstName?: string;
+  parentLastName?: string;
+  parentPhoneNumber?: string;
+  profileUrl?: string;
+  isActive: boolean;
+  gender: string;
+  entryTerm: number;
+  enrollmentSeason: EnrollmentSeason;
+  academicYear: number;
+}
 
 interface AddStudentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (studentData: {
-    name: string;
-    studentId: string;
-    cardId: string;
-    majorId: string;
-    classId: string;
-    dateOfBirth: string;
-    email: string;
-    phone?: string;
-    parentFirstName?: string;
-    parentLastName?: string;
-    parentPhoneNumber?: string;
-    profileUrl?: string;
-    isActive: boolean;
-    enrollmentYear: number;
-  }) => void;
+  onSubmit: (studentData: StudentFormSubmitValues) => void | Promise<void>;
   majors: Major[];
   classes: ClassItem[];
+  numberOfTerms: number;
+  enrollmentSemestersEnabled: string[];
+  defaultEnrollmentSemester?: string | null;
   initialData?: Student | null;
   isEdit?: boolean;
   loading?: boolean;
 }
+
+const GENDERS = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'other', label: 'Other' },
+  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+];
 
 const AddStudentModal: React.FC<AddStudentModalProps> = ({
   isOpen,
@@ -35,14 +73,17 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
   onSubmit,
   majors,
   classes,
+  numberOfTerms,
+  enrollmentSemestersEnabled,
+  defaultEnrollmentSemester,
   initialData,
   isEdit = false,
-  loading = false
+  loading = false,
 }) => {
   const currentYear = new Date().getFullYear();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: '',
-    studentId: '',
     cardId: '',
     majorId: '',
     classId: '',
@@ -52,162 +93,268 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
     parentFirstName: '',
     parentLastName: '',
     parentPhoneNumber: '',
-    profileUrl: '',
     isActive: true,
-    enrollmentYear: currentYear,
+    gender: 'male',
+    entryTerm: 1,
+    enrollmentSeason: 'fall' as EnrollmentSeason,
+    academicYear: currentYear,
   });
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [existingProfileUrl, setExistingProfileUrl] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Populate form with initial data when editing
+  const maxTerm = Math.min(Math.max(numberOfTerms || 3, 1), 6);
+  const showBusyOverlay = loading || isSubmitting;
+
+  const enrollmentSeasonOptions = useMemo(() => {
+    const base = (
+      enrollmentSemestersEnabled.length ? enrollmentSemestersEnabled : ['fall', 'spring', 'summer', 'winter']
+    ).map((s) => s.toLowerCase() as EnrollmentSeason);
+    const uniq = new Set(base);
+    if (formData.enrollmentSeason) uniq.add(formData.enrollmentSeason);
+    return [...uniq];
+  }, [enrollmentSemestersEnabled, formData.enrollmentSeason]);
+
   useEffect(() => {
+    if (!isOpen) return;
     if (initialData && isEdit) {
-      const majorId = typeof initialData.majorId === 'object' && initialData.majorId !== null
-        ? (initialData.majorId as { _id: string })._id
-        : (initialData.majorId as string);
-      const classId = typeof (initialData as any).classId === 'object' && (initialData as any).classId !== null
-        ? ((initialData as any).classId as { _id: string })._id
-        : ((initialData as any).classId as string) || '';
+      const majorId =
+        typeof initialData.majorId === 'object' && initialData.majorId !== null
+          ? (initialData.majorId as { _id: string })._id
+          : (initialData.majorId as string);
+      const classId =
+        typeof (initialData as Student).classId === 'object' &&
+        (initialData as Student).classId !== null
+          ? ((initialData as Student).classId as { _id: string })._id
+          : (((initialData as Student).classId as string) || '');
+      const st = initialData as Student;
+      const termVal = st.entryTerm ?? (st as unknown as { semester?: number }).semester;
+      const seasonRaw = st.enrollmentSeason
+        ? (String(st.enrollmentSeason).toLowerCase() as EnrollmentSeason)
+        : pickDefaultEnrollmentSeason(enrollmentSemestersEnabled, defaultEnrollmentSemester);
       setFormData({
         name: initialData.name,
-        studentId: initialData.studentId,
-        cardId: initialData.cardId,
+        cardId: initialData.cardId ?? '',
         majorId: majorId || '',
         classId: classId || '',
         dateOfBirth: initialData.dateOfBirth?.split?.('T')[0] || '',
-        email: initialData.email,
+        email: initialData.email || '',
         phone: initialData.phone || '',
-        parentFirstName: (initialData as any).parentFirstName || '',
-        parentLastName: (initialData as any).parentLastName || '',
-        parentPhoneNumber: (initialData as any).parentPhoneNumber || '',
-        profileUrl: initialData.profileUrl || '',
+        parentFirstName: initialData.parentFirstName || '',
+        parentLastName: initialData.parentLastName || '',
+        parentPhoneNumber: initialData.parentPhoneNumber || '',
         isActive: initialData.isActive,
-        enrollmentYear: (initialData as any).enrollmentYear || currentYear,
+        gender: st.gender || 'prefer_not_to_say',
+        entryTerm: Math.min(Math.max(termVal || 1, 1), maxTerm),
+        enrollmentSeason: seasonRaw,
+        academicYear: st.academicYear || st.enrollmentCohortYear || initialData.enrollmentYear || currentYear,
       });
-    }
-  }, [initialData, isEdit]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-    
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
-    }
-
-    if (!formData.studentId.trim()) {
-      newErrors.studentId = 'Student ID is required';
-    }
-
-    if (!formData.cardId.trim()) {
-      newErrors.cardId = 'Card ID is required';
-    }
-
-    if (!formData.majorId) {
-      newErrors.majorId = 'Major is required';
-    }
-
-    if (!formData.classId) {
-      newErrors.classId = 'Class is required';
-    }
-
-    if (!formData.dateOfBirth) {
-      newErrors.dateOfBirth = 'Date of Birth is required';
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(formData.email)) {
-      newErrors.email = 'Invalid email format';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (validateForm()) {
-      onSubmit({
-        name: formData.name.trim(),
-        studentId: formData.studentId.trim(),
-        cardId: formData.cardId.trim(),
-        majorId: formData.majorId,
-        classId: formData.classId,
-        dateOfBirth: formData.dateOfBirth,
-        email: formData.email.trim(),
-        phone: formData.phone.trim() || undefined,
-        parentFirstName: formData.parentFirstName.trim() || undefined,
-        parentLastName: formData.parentLastName.trim() || undefined,
-        parentPhoneNumber: formData.parentPhoneNumber.trim() || undefined,
-        profileUrl: formData.profileUrl.trim() || undefined,
-        isActive: formData.isActive,
-        enrollmentYear: formData.enrollmentYear,
-      });
-      
-      // Don't close modal here - let parent component handle it after API response
-      if (!loading) {
-        // setFormData({
-        //   name: '',
-        //   studentId: '',
-        //   cardId: '',
-        //   majorId: '',
-        //   class: '',
-        //   dateOfBirth: '',
-        //   email: '',
-        //   phone: '',
-        //   profileUrl: '',
-        //   isActive: true,
-        //   enrollmentDate: '',
-        // });
-        setErrors({});
-      }
-    }
-  };
-
-  const handleClose = () => {
-    if (!loading) {
+      setExistingProfileUrl(initialData.profileUrl || null);
+      setPhotoFile(null);
+      setPhotoPreview(null);
+    } else if (!isEdit && isOpen) {
+      const season = pickDefaultEnrollmentSeason(enrollmentSemestersEnabled, defaultEnrollmentSemester);
       setFormData({
         name: '',
-        studentId: '',
         cardId: '',
         majorId: '',
         classId: '',
-        dateOfBirth: '',
+        dateOfBirth: defaultDateOfBirthFifteenYearsAgo(),
         email: '',
         phone: '',
         parentFirstName: '',
         parentLastName: '',
         parentPhoneNumber: '',
-        profileUrl: '',
         isActive: true,
-        enrollmentYear: currentYear,
+        gender: 'male',
+        entryTerm: 1,
+        enrollmentSeason: season,
+        academicYear: currentYear,
       });
+      setPhotoFile(null);
+      setPhotoPreview(null);
+      setExistingProfileUrl(null);
+    }
+  }, [
+    initialData,
+    isEdit,
+    isOpen,
+    maxTerm,
+    currentYear,
+    enrollmentSemestersEnabled,
+    defaultEnrollmentSemester,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (photoPreview && photoPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
+
+  useEffect(() => {
+    if (!isOpen) setIsSubmitting(false);
+  }, [isOpen]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData((prev) => ({ ...prev, [name]: checked }));
+    } else if (name === 'entryTerm' || name === 'academicYear') {
+      setFormData((prev) => ({ ...prev, [name]: parseInt(value, 10) }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
+  };
+
+  const onPickPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (photoPreview?.startsWith('blob:')) URL.revokeObjectURL(photoPreview);
+    setPhotoFile(f);
+    setPhotoPreview(URL.createObjectURL(f));
+    setErrors((prev) => ({ ...prev, photo: '' }));
+  };
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (formData.cardId.trim() && formData.cardId.trim().length > 50) {
+      newErrors.cardId = 'Card ID cannot exceed 50 characters';
+    }
+    if (!formData.majorId) newErrors.majorId = 'Major is required';
+    if (!formData.classId) newErrors.classId = 'Class is required';
+    if (!formData.dateOfBirth) newErrors.dateOfBirth = 'Date of birth is required';
+    if (!formData.gender) newErrors.gender = 'Gender is required';
+    if (!formData.academicYear || formData.academicYear < 2000) {
+      newErrors.academicYear = 'Academic year is required';
+    }
+    const enabled = enrollmentSemestersEnabled.length
+      ? enrollmentSemestersEnabled.map((s) => s.toLowerCase())
+      : ['fall', 'spring', 'summer', 'winter'];
+    if (!enabled.includes(formData.enrollmentSeason)) {
+      newErrors.enrollmentSeason = 'Pick an enrollment semester your school allows';
+    }
+    if (!formData.entryTerm || formData.entryTerm < 1 || formData.entryTerm > maxTerm) {
+      newErrors.entryTerm = `Term must be between 1 and ${maxTerm}`;
+    }
+    if (formData.email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(formData.email.trim())) {
+      newErrors.email = 'Invalid email format';
+    }
+    if (formData.parentPhoneNumber.trim() && formData.parentPhoneNumber.trim().length > 20) {
+      newErrors.parentPhoneNumber = 'Max 20 characters';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+    try {
+      let profileUrl = existingProfileUrl || undefined;
+      if (photoFile) {
+        const up = await uploadStudentPhoto(photoFile);
+        if (!up.success || !up.data?.profileUrl) {
+          setErrors((prev) => ({ ...prev, photo: up.message || 'Photo upload failed' }));
+          return;
+        }
+        profileUrl = up.data.profileUrl;
+      }
+
+      await onSubmit({
+        name: formData.name.trim(),
+        cardId: formData.cardId.trim() || undefined,
+        majorId: formData.majorId,
+        classId: formData.classId,
+        dateOfBirth: formData.dateOfBirth,
+        email: formData.email.trim() || undefined,
+        phone: formData.phone.trim() || undefined,
+        parentFirstName: formData.parentFirstName.trim() || undefined,
+        parentLastName: formData.parentLastName.trim() || undefined,
+        parentPhoneNumber: formData.parentPhoneNumber.trim() || undefined,
+        profileUrl,
+        isActive: formData.isActive,
+        gender: formData.gender,
+        entryTerm: formData.entryTerm,
+        enrollmentSeason: formData.enrollmentSeason,
+        academicYear: formData.academicYear,
+      });
+      setErrors({});
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (!loading && !isSubmitting) {
+      if (photoPreview?.startsWith('blob:')) URL.revokeObjectURL(photoPreview);
+      setPhotoFile(null);
+      setPhotoPreview(null);
       setErrors({});
     }
     onClose();
   };
 
+  const displayImg = photoPreview || (existingProfileUrl ? publicUploadUrl(existingProfileUrl) : null);
+
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title={isEdit ? "Edit Student" : "Add New Student"} size="lg">
-      <form onSubmit={handleSubmit} className="space-y-6">
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={isEdit ? 'Edit Student' : 'Add New Student'}
+      size="lg"
+    >
+      <div className="relative">
+        {showBusyOverlay && (
+          <div
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg bg-white/85 backdrop-blur-[1px]"
+            aria-busy="true"
+            aria-live="polite"
+          >
+            <span className="inline-block h-10 w-10 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+            <span className="text-sm font-medium text-gray-700">
+              {isSubmitting && !loading ? 'Saving…' : 'Please wait…'}
+            </span>
+          </div>
+        )}
+        <form
+          onSubmit={handleSubmit}
+          className={`space-y-6 ${showBusyOverlay ? 'pointer-events-none opacity-50' : ''}`}
+        >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Name */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Profile photo (optional)</label>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="h-20 w-20 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center">
+                {displayImg ? (
+                  <img src={displayImg} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-xs text-gray-400 text-center px-1">No photo</span>
+                )}
+              </div>
+              <div>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onPickPhoto} />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300"
+                >
+                  {isEdit ? 'Change photo' : 'Upload photo'}
+                </button>
+                <p className="text-xs text-gray-500 mt-1">Optional. JPEG, PNG, or WebP. Max 5 MB. Stored on the server.</p>
+              </div>
+            </div>
+            {errors.photo && <p className="mt-1 text-sm text-red-600">{errors.photo}</p>}
+          </div>
+
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
               Full Name *
@@ -226,45 +373,64 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
             {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
           </div>
 
-          {/* Student ID */}
+          {isEdit && initialData && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Student ID</label>
+              <input
+                type="text"
+                readOnly
+                value={initialData.studentId}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
+              />
+              <p className="mt-1 text-xs text-gray-500">Assigned by the system and cannot be changed.</p>
+            </div>
+          )}
+
+          {!isEdit && (
+            <div className="md:col-span-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-sm text-blue-800">
+              Student ID will be generated automatically when you save (school short code + year + random suffix).
+            </div>
+          )}
+
           <div>
-            <label htmlFor="studentId" className="block text-sm font-medium text-gray-700 mb-2">
-              Student ID *
+            <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-2">
+              Gender *
             </label>
-            <input
-              type="text"
-              id="studentId"
-              name="studentId"
-              value={formData.studentId}
+            <select
+              id="gender"
+              name="gender"
+              value={formData.gender}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.studentId ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                errors.gender ? 'border-red-500' : 'border-gray-300'
               }`}
-              placeholder="e.g., 2024001"
-            />
-            {errors.studentId && <p className="mt-1 text-sm text-red-600">{errors.studentId}</p>}
+            >
+              {GENDERS.map((g) => (
+                <option key={g.value} value={g.value}>
+                  {g.label}
+                </option>
+              ))}
+            </select>
+            {errors.gender && <p className="mt-1 text-sm text-red-600">{errors.gender}</p>}
           </div>
 
-          {/* Card ID */}
           <div>
-            <label htmlFor="cardId" className="block text-sm font-medium text-gray-700 mb-2">
-              Card ID *
+            <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-2">
+              Date of Birth *
             </label>
             <input
-              type="text"
-              id="cardId"
-              name="cardId"
-              value={formData.cardId}
+              type="date"
+              id="dateOfBirth"
+              name="dateOfBirth"
+              value={formData.dateOfBirth}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.cardId ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                errors.dateOfBirth ? 'border-red-500' : 'border-gray-300'
               }`}
-              placeholder="e.g., RFID001"
             />
-            {errors.cardId && <p className="mt-1 text-sm text-red-600">{errors.cardId}</p>}
+            {errors.dateOfBirth && <p className="mt-1 text-sm text-red-600">{errors.dateOfBirth}</p>}
           </div>
 
-          {/* Major */}
           <div>
             <label htmlFor="majorId" className="block text-sm font-medium text-gray-700 mb-2">
               Major *
@@ -274,12 +440,12 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
               name="majorId"
               value={formData.majorId}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
                 errors.majorId ? 'border-red-500' : 'border-gray-300'
               }`}
             >
               <option value="">Select a major</option>
-              {majors.map(major => (
+              {majors.map((major) => (
                 <option key={major._id} value={major._id}>
                   {major.name}
                 </option>
@@ -288,7 +454,6 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
             {errors.majorId && <p className="mt-1 text-sm text-red-600">{errors.majorId}</p>}
           </div>
 
-          {/* Class */}
           <div>
             <label htmlFor="classId" className="block text-sm font-medium text-gray-700 mb-2">
               Class *
@@ -298,7 +463,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
               name="classId"
               value={formData.classId}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
                 errors.classId ? 'border-red-500' : 'border-gray-300'
               }`}
             >
@@ -312,28 +477,81 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
             {errors.classId && <p className="mt-1 text-sm text-red-600">{errors.classId}</p>}
           </div>
 
-          {/* Date of Birth */}
           <div>
-            <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-2">
-              Date of Birth *
+            <label htmlFor="academicYear" className="block text-sm font-medium text-gray-700 mb-2">
+              Academic year *
             </label>
-            <input
-              type="date"
-              id="dateOfBirth"
-              name="dateOfBirth"
-              value={formData.dateOfBirth}
+            <select
+              id="academicYear"
+              name="academicYear"
+              value={formData.academicYear}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.dateOfBirth ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                errors.academicYear ? 'border-red-500' : 'border-gray-300'
               }`}
-            />
-            {errors.dateOfBirth && <p className="mt-1 text-sm text-red-600">{errors.dateOfBirth}</p>}
+            >
+              {Array.from({ length: 25 }, (_, i) => currentYear - 10 + i).map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Start year of the academic year (e.g. 2025 for 2025/2026). Also used as the cohort year for enrollment
+              (e.g. Fall 2025).
+            </p>
+            {errors.academicYear && <p className="mt-1 text-sm text-red-600">{errors.academicYear}</p>}
           </div>
 
-          {/* Email */}
+          <div>
+            <label htmlFor="enrollmentSeason" className="block text-sm font-medium text-gray-700 mb-2">
+              Enrollment semester *
+            </label>
+            <select
+              id="enrollmentSeason"
+              name="enrollmentSeason"
+              value={formData.enrollmentSeason}
+              onChange={handleChange}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                errors.enrollmentSeason ? 'border-red-500' : 'border-gray-300'
+              }`}
+            >
+              {enrollmentSeasonOptions.map((key) => (
+                <option key={key} value={key}>
+                  {SEASON_LABELS[key] ?? key}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">When the student joined this intake (Fall, Spring, …).</p>
+            {errors.enrollmentSeason && <p className="mt-1 text-sm text-red-600">{errors.enrollmentSeason}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="entryTerm" className="block text-sm font-medium text-gray-700 mb-2">
+              Current term (reports and exams) *
+            </label>
+            <select
+              id="entryTerm"
+              name="entryTerm"
+              value={formData.entryTerm}
+              onChange={handleChange}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                errors.entryTerm ? 'border-red-500' : 'border-gray-300'
+              }`}
+            >
+              {Array.from({ length: maxTerm }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>
+                  Term {n}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">Grading period for marks and report cards (1…{maxTerm}).</p>
+            {errors.entryTerm && <p className="mt-1 text-sm text-red-600">{errors.entryTerm}</p>}
+          </div>
+
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email *
+              Email
             </label>
             <input
               type="email"
@@ -341,15 +559,14 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
                 errors.email ? 'border-red-500' : 'border-gray-300'
               }`}
-              placeholder="e.g., john.doe@student.edu"
+              placeholder="Optional"
             />
             {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
           </div>
 
-          {/* Phone */}
           <div>
             <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
               Phone
@@ -360,142 +577,130 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
               name="phone"
               value={formData.phone}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="e.g., +1234567890"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              placeholder="Optional"
             />
           </div>
 
-          {/* Parent First Name */}
+          <div className="md:col-span-2 border-t border-gray-100 pt-4 mt-2">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Parent / guardian</h3>
+            <p className="text-xs text-gray-500 mb-4">Optional. Used for parent portal accounts when provided.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="parentFirstName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Parent first name
+                </label>
+                <input
+                  type="text"
+                  id="parentFirstName"
+                  name="parentFirstName"
+                  value={formData.parentFirstName}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Optional"
+                />
+              </div>
+              <div>
+                <label htmlFor="parentLastName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Parent last name
+                </label>
+                <input
+                  type="text"
+                  id="parentLastName"
+                  name="parentLastName"
+                  value={formData.parentLastName}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label htmlFor="parentPhoneNumber" className="block text-sm font-medium text-gray-700 mb-2">
+                  Parent phone number
+                </label>
+                <input
+                  type="tel"
+                  id="parentPhoneNumber"
+                  name="parentPhoneNumber"
+                  value={formData.parentPhoneNumber}
+                  onChange={handleChange}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                    errors.parentPhoneNumber ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Optional"
+                />
+                {errors.parentPhoneNumber && (
+                  <p className="mt-1 text-sm text-red-600">{errors.parentPhoneNumber}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div>
-            <label htmlFor="parentFirstName" className="block text-sm font-medium text-gray-700 mb-2">
-              Parent First Name
+            <label htmlFor="cardId" className="block text-sm font-medium text-gray-700 mb-2">
+              RFID card ID (optional)
             </label>
             <input
               type="text"
-              id="parentFirstName"
-              name="parentFirstName"
-              value={formData.parentFirstName}
+              id="cardId"
+              name="cardId"
+              value={formData.cardId}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="e.g., Grace"
-            />
-          </div>
-
-          {/* Parent Last Name */}
-          <div>
-            <label htmlFor="parentLastName" className="block text-sm font-medium text-gray-700 mb-2">
-              Parent Last Name
-            </label>
-            <input
-              type="text"
-              id="parentLastName"
-              name="parentLastName"
-              value={formData.parentLastName}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="e.g., Uwase"
-            />
-          </div>
-
-          {/* Parent Phone Number */}
-          <div>
-            <label htmlFor="parentPhoneNumber" className="block text-sm font-medium text-gray-700 mb-2">
-              Parent Phone Number
-            </label>
-            <input
-              type="tel"
-              id="parentPhoneNumber"
-              name="parentPhoneNumber"
-              value={formData.parentPhoneNumber}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="e.g., +2507XXXXXXXX"
-            />
-          </div>
-
-          {/* Joining year (enrollment year) */}
-          <div>
-            <label htmlFor="enrollmentYear" className="block text-sm font-medium text-gray-700 mb-2">
-              Joining year *
-            </label>
-            <select
-              id="enrollmentYear"
-              name="enrollmentYear"
-              value={formData.enrollmentYear}
-              onChange={(e) => setFormData({ ...formData, enrollmentYear: parseInt(e.target.value, 10) })}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.enrollmentYear ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                errors.cardId ? 'border-red-500' : 'border-gray-300'
               }`}
-            >
-              {Array.from({ length: 25 }, (_, i) => currentYear - 10 + i).map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500">Year the student joined the school</p>
-          </div>
-
-          {/* Profile URL */}
-          <div>
-            <label htmlFor="profileUrl" className="block text-sm font-medium text-gray-700 mb-2">
-              Profile URL
-            </label>
-            <input
-              type="url"
-              id="profileUrl"
-              name="profileUrl"
-              value={formData.profileUrl}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="https://example.com/profile.jpg"
+              placeholder="Assign later if needed"
             />
+            {errors.cardId && <p className="mt-1 text-sm text-red-600">{errors.cardId}</p>}
           </div>
 
-          {/* Is Active */}
           <div>
             <label htmlFor="isActive" className="block text-sm font-medium text-gray-700 mb-1">
-              Student Status
+              Is active *
             </label>
             <select
               id="isActive"
               name="isActive"
-              value={formData.isActive ? "active" : "inactive"}
-              onChange={(e) => setFormData({ ...formData, isActive: e.target.value === "active" })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              value={formData.isActive ? 'yes' : 'no'}
+              onChange={(e) => setFormData((prev) => ({ ...prev, isActive: e.target.value === 'yes' }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="active">Active </option>
-              <option value="inactive">Inactive </option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
             </select>
           </div>
         </div>
 
-        {/* Form Actions */}
         <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
           <button
             type="button"
             onClick={handleClose}
-            disabled={loading}
-            className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={showBusyOverlay}
+            className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            disabled={showBusyOverlay}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
           >
-            {loading ? (
+            {showBusyOverlay ? (
               <>
-                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                 {isEdit ? 'Updating...' : 'Adding...'}
               </>
+            ) : isEdit ? (
+              'Update Student'
             ) : (
-              isEdit ? 'Update Student' : 'Add Student'
+              'Add Student'
             )}
           </button>
         </div>
       </form>
+      </div>
     </Modal>
   );
 };
 
-export default AddStudentModal; 
+export default AddStudentModal;

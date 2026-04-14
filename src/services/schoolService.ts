@@ -31,8 +31,15 @@ export const getMySchool = async () => {
   return response.data;
 };
 
-/** Update current user's school (school_admin; name, location, numberOfTerms). */
-export const updateMySchool = async (data: { name?: string; location?: string; numberOfTerms?: number }) => {
+/** Update current user's school (school_admin; name, location, numberOfTerms, shortCode). */
+export const updateMySchool = async (data: {
+  name?: string;
+  location?: string;
+  numberOfTerms?: number;
+  shortCode?: string;
+  enrollmentSemestersEnabled?: string[];
+  defaultEnrollmentSemester?: string | null;
+}) => {
   const response = await axiosInstance.put('/api/schools/my-school', data);
   return response.data;
 };
