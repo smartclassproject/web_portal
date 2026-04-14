@@ -191,7 +191,7 @@ export interface Device {
 export interface User {
   id: string;
   email: string;
-  role: "super_admin" | "school_admin" | "teacher";
+  role: "super_admin" | "school_admin" | "teacher" | "student";
   schoolId?: string;
   teacherId?: string;
   name: string;

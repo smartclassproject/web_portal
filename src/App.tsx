@@ -35,9 +35,16 @@ import InquiriesPage from './pages/school/InquiriesPage';
 import './index.css';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import TeacherSetPasswordPage from './pages/TeacherSetPasswordPage';
+import StudentPortalLayout from './pages/student/StudentPortalLayout';
+import StudentFeesPage from './pages/student/StudentFeesPage';
+import StudentMaterialsPage from './pages/student/StudentMaterialsPage';
+import StudentProfilePage from './pages/student/StudentProfilePage';
+import StudentHelpPage from './pages/student/StudentHelpPage';
+import StudentPrivacyPolicyPage from './pages/student/StudentPrivacyPolicyPage';
+import StudentChangePasswordPage from './pages/student/StudentChangePasswordPage';
 
 // Route protection component
-const RequireAuth: React.FC<{ children: React.ReactNode; role?: 'super_admin' | 'school_admin' | 'teacher' }> = ({ children, role }) => {
+const RequireAuth: React.FC<{ children: React.ReactNode; role?: 'super_admin' | 'school_admin' | 'teacher' | 'student' }> = ({ children, role }) => {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
@@ -53,6 +60,7 @@ const RedirectToDashboard: React.FC = () => {
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'super_admin') return <Navigate to="/admin/dashboard" replace />;
   if (user.role === 'teacher') return <Navigate to="/teacher/dashboard" replace />;
+  if (user.role === 'student') return <Navigate to="/student/fees" replace />;
   return <Navigate to="/school/dashboard" replace />;
 };
 
@@ -300,6 +308,22 @@ const App: React.FC = () => {
               </RequireAuth>
             }
           />
+          <Route
+            path="/student"
+            element={
+              <RequireAuth role="student">
+                <StudentPortalLayout />
+              </RequireAuth>
+            }
+          >
+            <Route index element={<Navigate to="/student/fees" replace />} />
+            <Route path="fees" element={<StudentFeesPage />} />
+            <Route path="materials" element={<StudentMaterialsPage />} />
+            <Route path="profile" element={<StudentProfilePage />} />
+            <Route path="help" element={<StudentHelpPage />} />
+            <Route path="privacy-policy" element={<StudentPrivacyPolicyPage />} />
+            <Route path="change-password" element={<StudentChangePasswordPage />} />
+          </Route>
           {/* Add more protected routes here for other pages */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

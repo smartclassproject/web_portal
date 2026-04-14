@@ -26,6 +26,7 @@ import {
 } from "../../services/scheduleService";
 import { getSchoolCourses } from "../../services/courseService";
 import { getSchoolTeachers } from "../../services/teacherService";
+import { getClasses } from "../../services/classService";
 import { toast } from "react-toastify";
 import type {
   Course,
@@ -34,6 +35,7 @@ import type {
   Teacher,
   WeeklySession,
 } from "../../types";
+import type { ClassItem } from "../../services/classService";
 
 const locales = {
   "en-US": enUS,
@@ -188,6 +190,7 @@ const SchedulesPage: React.FC = () => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [deletingSchedule, setDeletingSchedule] = useState<Schedule | null>(
@@ -205,6 +208,7 @@ const SchedulesPage: React.FC = () => {
     fetchSchedules();
     fetchCourses();
     fetchTeachers();
+    fetchClasses();
   }, []);
 
   // Refetch schedules when time view or dates change
@@ -268,6 +272,15 @@ const SchedulesPage: React.FC = () => {
     }
   };
 
+  const fetchClasses = async () => {
+    try {
+      const response = await getClasses();
+      setClasses(response.data || []);
+    } catch (error) {
+      toast.error("Failed to fetch classes. Please try again.");
+    }
+  };
+
   // Filter schedules based on search and time selection
   const filtered =
     schedules &&
@@ -319,29 +332,20 @@ const SchedulesPage: React.FC = () => {
   };
 
   const handleAddSchedule = async (scheduleData: CreateScheduleData) => {
-    try {
-      await createSchedule(scheduleData);
-      toast.success("Schedule created successfully!");
-      fetchSchedules();
-      setIsAddModalOpen(false);
-      setSelectedSlot(null);
-    } catch (error) {
-      toast.error("Failed to create schedule. Please try again.");
-    }
+    await createSchedule(scheduleData);
+    toast.success("Schedule created successfully!");
+    fetchSchedules();
+    setIsAddModalOpen(false);
+    setSelectedSlot(null);
   };
 
   const handleEditSchedule = async (scheduleData: CreateScheduleData) => {
     if (!selectedSchedule) return;
-
-    try {
-      await updateSchedule(selectedSchedule._id, scheduleData);
-      toast.success("Schedule updated successfully!");
-      fetchSchedules();
-      setIsEditModalOpen(false);
-      setSelectedSchedule(null);
-    } catch (error) {
-      toast.error("Failed to update schedule. Please try again.");
-    }
+    await updateSchedule(selectedSchedule._id, scheduleData);
+    toast.success("Schedule updated successfully!");
+    fetchSchedules();
+    setIsEditModalOpen(false);
+    setSelectedSchedule(null);
   };
 
   const handleDeleteSchedule = async (schedule: Schedule) => {
@@ -940,6 +944,7 @@ const SchedulesPage: React.FC = () => {
           onSubmit={handleAddSchedule}
           courses={courses}
           teachers={teachers}
+          classes={classes}
           initialData={
             selectedSlot
               ? {
@@ -968,6 +973,7 @@ const SchedulesPage: React.FC = () => {
           onSubmit={handleEditSchedule}
           courses={courses}
           teachers={teachers}
+          classes={classes}
           initialData={
             selectedSchedule
               ? {
@@ -975,6 +981,8 @@ const SchedulesPage: React.FC = () => {
                     typeof selectedSchedule.courseId === "string"
                       ? selectedSchedule.courseId
                       : selectedSchedule.courseId._id,
+                  classId:
+                    classes.find((c) => c.name === selectedSchedule.classroom)?._id || '',
                   classroom: selectedSchedule.classroom,
                   teacherId:
                     typeof selectedSchedule.teacherId === "string"

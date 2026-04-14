@@ -1,22 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 import type { Course, CreateScheduleData, Teacher, WeeklySession } from '../../types';
+import type { ClassItem } from '../../services/classService';
+import { toast } from 'react-toastify';
 // import { WeeklySession, CreateScheduleData } from '../../services/scheduleService';
 
 interface AddScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (scheduleData: CreateScheduleData) => void;
+  onSubmit: (scheduleData: CreateScheduleData) => void | Promise<void>;
   courses: Course[];
   teachers: Teacher[];
+  classes: ClassItem[];
   initialData?: {
     courseId?: string;
+    classId?: string;
     classroom?: string;
     teacherId?: string;
     startDate?: string;
     endDate?: string;
     weeklySessions?: WeeklySession[];
-    maxStudents?: number;
   };
   title?: string;
   submitButtonText?: string;
@@ -28,17 +31,24 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
   onSubmit, 
   courses, 
   teachers, 
+  classes,
   initialData, 
   title = "Add New Schedule",
   submitButtonText = "Add Schedule"
 }) => {
+  const resolveInitialClassId = () => {
+    if (initialData?.classId) return initialData.classId;
+    if (!initialData?.classroom) return '';
+    const byName = classes.find((c) => c.name === initialData.classroom);
+    return byName?._id || '';
+  };
+
   const [formData, setFormData] = useState({
     courseId: initialData?.courseId || '',
-    classroom: initialData?.classroom || '',
+    classId: resolveInitialClassId(),
     teacherId: initialData?.teacherId || '',
     startDate: initialData?.startDate || '',
     endDate: initialData?.endDate || '',
-    maxStudents: initialData?.maxStudents || 30,
   });
   
   const [weeklySessions, setWeeklySessions] = useState<WeeklySession[]>(
@@ -47,6 +57,7 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [sessionErrors, setSessionErrors] = useState<Record<number, Record<string, string>>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -55,15 +66,14 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
     if (initialData) {
       setFormData({
         courseId: initialData.courseId || '',
-        classroom: initialData.classroom || '',
+        classId: resolveInitialClassId(),
         teacherId: initialData.teacherId || '',
         startDate: initialData.startDate || '',
         endDate: initialData.endDate || '',
-        maxStudents: initialData.maxStudents || 30,
       });
       setWeeklySessions(initialData.weeklySessions || [{ day: 'Monday', startTime: '09:00', endTime: '10:30' }]);
     }
-  }, [initialData]);
+  }, [initialData, classes]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -112,8 +122,8 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
       newErrors.courseId = 'Course is required';
     }
 
-    if (!formData.classroom.trim()) {
-      newErrors.classroom = 'Classroom is required';
+    if (!formData.classId) {
+      newErrors.classId = 'Class is required';
     }
 
     if (!formData.teacherId) {
@@ -132,10 +142,6 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
       if (end <= start) {
         newErrors.endDate = 'End date must be after start date';
       }
-    }
-
-    if (formData.maxStudents && formData.maxStudents <= 0) {
-      newErrors.maxStudents = 'Max students must be greater than 0';
     }
 
     // Validate weekly sessions
@@ -171,35 +177,37 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
     return Object.keys(newErrors).length === 0 && Object.keys(newSessionErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (validateForm()) {
+      const selectedClass = classes.find((c) => c._id === formData.classId);
       const scheduleData: CreateScheduleData = {
         courseId: formData.courseId,
-        classroom: formData.classroom,
+        classroom: selectedClass?.name || '',
         teacherId: formData.teacherId,
         startDate: formData.startDate,
         endDate: formData.endDate,
         weeklySessions: weeklySessions,
-        maxStudents: formData.maxStudents,
       };
-      
-      onSubmit(scheduleData);
-      
-      // Reset form
-      setFormData({
-        courseId: '',
-        classroom: '',
-        teacherId: '',
-        startDate: '',
-        endDate: '',
-        maxStudents: 30,
-      });
-      setWeeklySessions([{ day: 'Monday', startTime: '09:00', endTime: '10:30' }]);
-      setErrors({});
-      setSessionErrors({});
-      onClose();
+
+      try {
+        setIsSubmitting(true);
+        await Promise.resolve(onSubmit(scheduleData));
+      } catch (error: unknown) {
+        const err = error as {
+          response?: { data?: { message?: string; error?: string } };
+          message?: string;
+        };
+        const message =
+          err.response?.data?.error ||
+          err.response?.data?.message ||
+          err.message ||
+          'Failed to save schedule';
+        toast.error(message);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -231,23 +239,28 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
             {errors.courseId && <p className="mt-1 text-sm text-red-600">{errors.courseId}</p>}
           </div>
 
-          {/* Classroom */}
+          {/* Class */}
           <div>
-            <label htmlFor="classroom" className="block text-sm font-medium text-gray-700 mb-2">
-              Classroom *
+            <label htmlFor="classId" className="block text-sm font-medium text-gray-700 mb-2">
+              Class *
             </label>
-            <input
-              type="text"
-              id="classroom"
-              name="classroom"
-              value={formData.classroom}
+            <select
+              id="classId"
+              name="classId"
+              value={formData.classId}
               onChange={handleChange}
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.classroom ? 'border-red-500' : 'border-gray-300'
+                errors.classId ? 'border-red-500' : 'border-gray-300'
               }`}
-              placeholder="e.g., A101, B205"
-            />
-            {errors.classroom && <p className="mt-1 text-sm text-red-600">{errors.classroom}</p>}
+            >
+              <option value="">Select a class</option>
+              {classes.map((classItem) => (
+                <option key={classItem._id} value={classItem._id}>
+                  {classItem.name} {classItem.code ? `(${classItem.code})` : ''}
+                </option>
+              ))}
+            </select>
+            {errors.classId && <p className="mt-1 text-sm text-red-600">{errors.classId}</p>}
           </div>
 
           {/* Teacher */}
@@ -272,26 +285,6 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
               ))}
             </select>
             {errors.teacherId && <p className="mt-1 text-sm text-red-600">{errors.teacherId}</p>}
-          </div>
-
-          {/* Max Students */}
-          <div>
-            <label htmlFor="maxStudents" className="block text-sm font-medium text-gray-700 mb-2">
-              Max Students
-            </label>
-            <input
-              type="number"
-              id="maxStudents"
-              name="maxStudents"
-              value={formData.maxStudents}
-              onChange={handleChange}
-              min="1"
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.maxStudents ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="30"
-            />
-            {errors.maxStudents && <p className="mt-1 text-sm text-red-600">{errors.maxStudents}</p>}
           </div>
 
           {/* Start Date */}
@@ -422,15 +415,20 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+            disabled={isSubmitting}
+            className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+            disabled={isSubmitting}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
           >
-            {submitButtonText}
+            {isSubmitting && (
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            )}
+            {isSubmitting ? 'Saving...' : submitButtonText}
           </button>
         </div>
       </form>

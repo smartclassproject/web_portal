@@ -21,6 +21,8 @@ const LoginPage: React.FC = () => {
         navigate('/school/dashboard');
       } else if (user.role === 'teacher') {
         navigate('/teacher/dashboard');
+      } else if (user.role === 'student') {
+        navigate('/student/fees');
       }
     }
   }, [user, navigate]);
@@ -58,6 +60,8 @@ const LoginPage: React.FC = () => {
         navigate('/school/dashboard');
       } else if (user.role === 'teacher') {
         navigate('/teacher/dashboard');
+      } else if (user.role === 'student') {
+        navigate('/student/fees');
       } else {
         setError('Unknown user role!');
       }
