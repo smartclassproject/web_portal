@@ -16,6 +16,27 @@ const Field: React.FC<{ label: string; value?: unknown }> = ({ label, value }) =
   </div>
 );
 
+const asRecord = (value: unknown): Record<string, any> => (
+  value && typeof value === 'object' ? (value as Record<string, any>) : {}
+);
+
+const pickStudentId = (profile: any): string | null => {
+  const identity = asRecord(profile?.identity);
+  const raw = asRecord(profile?.raw);
+  const candidate = [
+    profile?.studentId,
+    identity.studentId,
+    raw.studentId,
+    profile?.registrationNumber,
+    raw.registrationNumber,
+    profile?.admissionNumber,
+    raw.admissionNumber,
+    profile?.cardId,
+    raw.cardId
+  ].find((v) => typeof v === 'string' && v.trim().length > 0);
+  return candidate ? String(candidate) : null;
+};
+
 const StudentProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -37,34 +58,40 @@ const StudentProfilePage: React.FC = () => {
   if (loading) return <div className="bg-white rounded-xl p-6">Loading profile...</div>;
   if (!profile) return <div className="bg-white rounded-xl p-6 text-gray-500">Profile unavailable.</div>;
 
-  const dob = profile.personal?.dateOfBirth ? new Date(profile.personal.dateOfBirth).toLocaleDateString() : null;
+  const identity = asRecord(profile.identity);
+  const personal = asRecord(profile.personal);
+  const academic = asRecord(profile.academic);
+  const parentGuardian = asRecord(profile.parentGuardian);
+  const studentId = pickStudentId(profile);
+  const dobValue = personal.dateOfBirth ?? profile.dateOfBirth;
+  const dob = dobValue ? new Date(dobValue).toLocaleDateString() : null;
 
   return (
     <div className="space-y-4">
       <Section title="Identity">
-        <Field label="Name" value={profile.identity?.name} />
-        <Field label="Student ID" value={profile.identity?.studentId} />
-        <Field label="Class" value={profile.identity?.className} />
-        <Field label="Status" value={profile.identity?.status} />
+        <Field label="Name" value={identity.name ?? profile.name} />
+        <Field label="Student ID" value={studentId} />
+        <Field label="Class" value={identity.className ?? profile.className ?? profile.class} />
+        <Field label="Status" value={identity.status ?? profile.status} />
       </Section>
       <Section title="Personal Details">
         <Field label="Date of birth" value={dob} />
-        <Field label="Gender" value={profile.personal?.gender} />
-        <Field label="Email" value={profile.personal?.email} />
-        <Field label="Phone" value={profile.personal?.phone} />
+        <Field label="Gender" value={personal.gender ?? profile.gender} />
+        <Field label="Email" value={personal.email ?? profile.email} />
+        <Field label="Phone" value={personal.phone ?? profile.phone} />
       </Section>
       <Section title="Academic Details">
-        <Field label="Major" value={profile.academic?.major} />
-        <Field label="Major code" value={profile.academic?.majorCode} />
-        <Field label="Enrollment year" value={profile.academic?.enrollmentYear} />
-        <Field label="Academic year" value={profile.academic?.academicYear} />
-        <Field label="Entry term" value={profile.academic?.entryTerm} />
-        <Field label="Cohort" value={profile.academic?.enrollmentCohortYear} />
+        <Field label="Major" value={academic.major ?? profile.major} />
+        <Field label="Major code" value={academic.majorCode ?? profile.majorCode} />
+        <Field label="Enrollment year" value={academic.enrollmentYear ?? profile.enrollmentYear} />
+        <Field label="Academic year" value={academic.academicYear ?? profile.academicYear} />
+        <Field label="Entry term" value={academic.entryTerm ?? profile.term} />
+        <Field label="Cohort" value={academic.enrollmentCohortYear ?? profile.cohort} />
       </Section>
       <Section title="Parent / Guardian">
-        <Field label="First name" value={profile.parentGuardian?.firstName} />
-        <Field label="Last name" value={profile.parentGuardian?.lastName} />
-        <Field label="Phone" value={profile.parentGuardian?.phoneNumber} />
+        <Field label="First name" value={parentGuardian.firstName ?? profile.parentFirstName} />
+        <Field label="Last name" value={parentGuardian.lastName ?? profile.parentLastName} />
+        <Field label="Phone" value={parentGuardian.phoneNumber ?? profile.parentPhoneNumber} />
       </Section>
     </div>
   );

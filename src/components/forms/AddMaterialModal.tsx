@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 import type { Material, Course } from '../../types';
+import { toast } from 'react-toastify';
+import { uploadFileAsset } from '../../services/uploadService';
 
 interface AddMaterialModalProps {
   isOpen: boolean;
@@ -41,6 +43,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
     isPublished: false
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isUploadingAsset, setIsUploadingAsset] = useState(false);
 
   useEffect(() => {
     if (initialData && isEdit) {
@@ -128,6 +131,30 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
     }
   };
 
+  const handleUploadFile = async (file?: File | null) => {
+    if (!file) return;
+    try {
+      setIsUploadingAsset(true);
+      const res = await uploadFileAsset('study_material', file);
+      const data = res?.data || {};
+      if (!data.url) {
+        throw new Error('Upload did not return file URL');
+      }
+      setFormData((prev) => ({
+        ...prev,
+        fileUrl: data.url,
+        fileName: data.originalName || file.name,
+        fileSize: Number(data.sizeBytes || file.size || 0),
+      }));
+      setErrors((prev) => ({ ...prev, fileUrl: '' }));
+      toast.success('File uploaded successfully');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || error.message || 'Failed to upload file');
+    } finally {
+      setIsUploadingAsset(false);
+    }
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title={isEdit ? "Edit Material" : "Upload New Material"} size="lg">
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -202,7 +229,18 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
             placeholder="https://example.com/file.pdf"
           />
           {errors.fileUrl && <p className="mt-1 text-sm text-red-600">{errors.fileUrl}</p>}
-          <p className="mt-1 text-xs text-gray-500">Upload your file to a cloud storage service and paste the URL here</p>
+          <p className="mt-1 text-xs text-gray-500">Paste URL or upload directly below using reusable upload API.</p>
+          <div className="mt-2">
+            <input
+              type="file"
+              onChange={(e) => handleUploadFile(e.target.files?.[0])}
+              disabled={loading || isUploadingAsset}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+            {isUploadingAsset ? (
+              <p className="mt-1 text-xs text-blue-600">Uploading file...</p>
+            ) : null}
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -246,20 +284,20 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
           <button
             type="button"
             onClick={handleClose}
-            disabled={loading}
+            disabled={loading || isUploadingAsset}
             className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || isUploadingAsset}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            {loading ? (
+            {loading || isUploadingAsset ? (
               <>
                 <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-                {isEdit ? 'Updating...' : 'Uploading...'}
+                {isUploadingAsset ? 'Uploading file...' : isEdit ? 'Updating...' : 'Uploading...'}
               </>
             ) : (
               isEdit ? 'Update Material' : 'Upload Material'

@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { getStudentFees, submitStudentFeeProof } from '../../services/studentPortalService';
+import { uploadFileAsset } from '../../services/uploadService';
+import { publicUploadUrl } from '../../utils/publicUploadUrl';
 
 const StudentFeesPage: React.FC = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [uploadedProof, setUploadedProof] = useState<{ assetId: string; url: string } | null>(null);
   const [form, setForm] = useState({ amountSubmitted: '', paymentMethod: 'MOMO', paymentReference: '', notes: '' });
 
   const load = async () => {
@@ -25,18 +30,47 @@ const StudentFeesPage: React.FC = () => {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!uploadedProof?.assetId) {
+      toast.error('Please upload payment proof image before submitting.');
+      return;
+    }
     try {
+      setIsSubmitting(true);
       await submitStudentFeeProof({
         amountSubmitted: Number(form.amountSubmitted),
         paymentMethod: form.paymentMethod,
         paymentReference: form.paymentReference,
         notes: form.notes,
+        proofAssetId: uploadedProof.assetId,
       });
       toast.success('Payment proof submitted');
       setForm({ amountSubmitted: '', paymentMethod: 'MOMO', paymentReference: '', notes: '' });
+      setUploadedProof(null);
       load();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to submit proof');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const uploadProof = async (file?: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Payment proof must be an image.');
+      return;
+    }
+    try {
+      setIsUploadingProof(true);
+      const res = await uploadFileAsset('fees_proof', file);
+      const payload = res?.data;
+      if (!payload?.assetId) throw new Error('Upload failed');
+      setUploadedProof({ assetId: String(payload.assetId), url: String(payload.url || '') });
+      toast.success('Proof uploaded successfully');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || e.message || 'Failed to upload proof');
+    } finally {
+      setIsUploadingProof(false);
     }
   };
 
@@ -113,8 +147,25 @@ const StudentFeesPage: React.FC = () => {
             value={form.notes}
             onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
           />
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">
-            Submit Proof
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Payment proof image *</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => uploadProof(e.target.files?.[0])}
+              disabled={isUploadingProof || isSubmitting}
+              className="w-full border rounded-lg px-3 py-2"
+            />
+            {isUploadingProof && <p className="text-xs text-blue-600">Uploading image...</p>}
+            {uploadedProof?.url ? (
+              <img src={publicUploadUrl(uploadedProof.url)} alt="Payment proof preview" className="max-h-44 rounded-lg border" />
+            ) : null}
+          </div>
+          <button
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-60"
+            disabled={isSubmitting || isUploadingProof}
+          >
+            {isSubmitting ? 'Submitting...' : 'Submit Proof'}
           </button>
         </form>
       </div>
