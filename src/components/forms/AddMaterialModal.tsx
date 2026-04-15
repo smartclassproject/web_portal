@@ -38,7 +38,7 @@ export type MaterialSubmitPayload = {
 interface AddMaterialModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (materialData: MaterialSubmitPayload) => void;
+  onSubmit: (materialData: MaterialSubmitPayload) => void | Promise<void>;
   initialData?: Material | null;
   courses: Course[];
   isEdit?: boolean;
@@ -66,6 +66,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isUploadingAsset, setIsUploadingAsset] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (initialData && isEdit) {
@@ -122,6 +123,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         isPublished: false
       });
       setErrors({});
+      setSelectedFile(null);
     }
     onClose();
   };
@@ -136,10 +138,12 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       if (!formData.fileUrl.trim()) newErrors.fileUrl = 'Enter the link URL';
       else if (!/^https?:\/\/.+/i.test(url)) newErrors.fileUrl = 'Enter a valid http(s) URL';
     } else {
-      if (!formData.fileUrl.trim()) {
-        newErrors.fileUrl = isEdit ? 'Add a file or keep the existing resource' : 'Upload a file to attach this material';
-      } else if (!/^https?:\/\/.+/i.test(formData.fileUrl.trim())) {
-        newErrors.fileUrl = 'Invalid resource URL';
+      const hasStaged = selectedFile != null;
+      const hasExistingResource = formData.fileUrl.trim().length > 0;
+      if (!hasStaged && !hasExistingResource) {
+        newErrors.fileUrl = isEdit
+          ? 'Choose a file or keep the existing resource'
+          : 'Choose a file to attach this material';
       }
     }
 
@@ -147,23 +151,46 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const fileUrl =
+    let fileUrl =
       formData.fileType === 'link'
         ? normalizeHttpUrl(formData.fileUrl)
         : formData.fileUrl.trim();
+    let fileName = formData.fileName.trim() || undefined;
+    let fileSize = formData.fileSize || undefined;
+    let fileType = formData.fileType;
 
-    onSubmit({
+    if (formData.fileType !== 'link' && selectedFile) {
+      try {
+        setIsUploadingAsset(true);
+        const res = await uploadFileAsset('study_material', selectedFile);
+        const data = res?.data || {};
+        if (!data.url) throw new Error('Upload did not return file URL');
+        const name = (data.originalName as string) || selectedFile.name;
+        fileType = inferFileTypeFromFileName(name);
+        fileUrl = String(data.url);
+        fileName = name;
+        fileSize = Number(data.sizeBytes || selectedFile.size || 0) || undefined;
+      } catch (error: unknown) {
+        const err = error as { response?: { data?: { message?: string } }; message?: string };
+        toast.error(err.response?.data?.message || err.message || 'Failed to upload file');
+        return;
+      } finally {
+        setIsUploadingAsset(false);
+      }
+    }
+
+    await onSubmit({
       courseId: formData.courseId.trim(),
       title: formData.title.trim(),
       description: formData.description.trim() || undefined,
-      fileType: formData.fileType,
+      fileType,
       fileUrl,
-      fileName: formData.fileName.trim() || undefined,
-      fileSize: formData.fileSize || undefined,
+      fileName,
+      fileSize,
       isPublished: formData.isPublished
     });
     if (!loading) {
@@ -178,35 +205,21 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         isPublished: false
       });
       setErrors({});
+      setSelectedFile(null);
     }
   };
 
-  const handleUploadFile = async (file?: File | null) => {
+  const handleChooseFile = (file?: File | null) => {
     if (!file || formData.fileType === 'link') return;
-    try {
-      setIsUploadingAsset(true);
-      const res = await uploadFileAsset('study_material', file);
-      const data = res?.data || {};
-      if (!data.url) {
-        throw new Error('Upload did not return file URL');
-      }
-      const name = (data.originalName as string) || file.name;
-      const detected = inferFileTypeFromFileName(name);
-      setFormData((prev) => ({
-        ...prev,
-        fileUrl: data.url as string,
-        fileName: name,
-        fileSize: Number(data.sizeBytes || file.size || 0),
-        fileType: detected
-      }));
-      setErrors((prev) => ({ ...prev, fileUrl: '' }));
-      toast.success(`Uploaded — type set to ${detected.toUpperCase()} (you can change it below)`);
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } }; message?: string };
-      toast.error(err.response?.data?.message || err.message || 'Failed to upload file');
-    } finally {
-      setIsUploadingAsset(false);
-    }
+    const detected = inferFileTypeFromFileName(file.name);
+    setSelectedFile(file);
+    setFormData((prev) => ({
+      ...prev,
+      fileName: file.name,
+      fileSize: Number(file.size || 0),
+      fileType: detected
+    }));
+    setErrors((prev) => ({ ...prev, fileUrl: '' }));
   };
 
   const isLink = formData.fileType === 'link';
@@ -279,7 +292,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
           <p className="mt-1 text-xs text-gray-500">
             {isLink
               ? 'Paste any web address (YouTube, Drive, article, …).'
-              : 'Upload a file — we detect the type from the file; you can change it here after upload.'}
+              : 'Choose a file now; upload happens only when you click Add material.'}
           </p>
         </div>
 
@@ -302,22 +315,25 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
             <label className="block text-sm font-medium text-gray-700">File</label>
             <input
               type="file"
-              onChange={(e) => handleUploadFile(e.target.files?.[0])}
+              onChange={(e) => handleChooseFile(e.target.files?.[0])}
               disabled={loading || isUploadingAsset}
               className="w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-white file:text-sm"
             />
             {isUploadingAsset ? (
-              <p className="text-xs text-blue-600">Uploading…</p>
+              <p className="text-xs text-blue-600">Uploading file…</p>
             ) : null}
-            {formData.fileUrl && !isLink ? (
+            {(selectedFile || formData.fileUrl) && !isLink ? (
               <p className="text-xs text-green-700 break-all">
                 Resource ready. {formData.fileName ? <span className="font-medium">{formData.fileName}</span> : null}
                 {formData.fileSize ? <span> · {(formData.fileSize / 1024).toFixed(1)} KB</span> : null}
               </p>
             ) : null}
             {errors.fileUrl && <p className="text-sm text-red-600">{errors.fileUrl}</p>}
-            {isEdit && formData.fileUrl && !isUploadingAsset ? (
-              <p className="text-xs text-gray-500">Upload a new file to replace the current one.</p>
+            {selectedFile ? (
+              <p className="text-xs text-gray-500">File selected. It will upload when you submit.</p>
+            ) : null}
+            {isEdit && formData.fileUrl && !selectedFile && !isUploadingAsset ? (
+              <p className="text-xs text-gray-500">Choose a new file to replace the current one, or keep existing.</p>
             ) : null}
           </div>
         )}
@@ -352,7 +368,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
             {loading || isUploadingAsset ? (
               <>
                 <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                {isUploadingAsset ? 'Uploading…' : isEdit ? 'Saving…' : 'Saving…'}
+                {isUploadingAsset ? 'Uploading file…' : isEdit ? 'Saving…' : 'Saving…'}
               </>
             ) : (
               isEdit ? 'Save changes' : 'Add material'
