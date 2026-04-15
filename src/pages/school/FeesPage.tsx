@@ -8,12 +8,29 @@ import {
   getFeeAccounts,
   getPaymentSubmissions,
   upsertFeeAccount,
+  bulkUpsertFeeAccounts,
   upsertPaymentInstructions,
   getPaymentInstructions,
   approveSubmission,
   rejectSubmission,
 } from '../../services/feesService';
 import { publicUploadUrl } from '../../utils/publicUploadUrl';
+import { formatRwf } from '../../utils/formatRwf';
+
+function formatFeeAccountCohort(a: { feeBucketKey?: string; academicYear?: number; term?: number }) {
+  const key = a.feeBucketKey;
+  if (!key) return '—';
+  if (key === 'school-wide') return 'School-wide';
+  if (String(key).startsWith('legacy-')) {
+    if (a.academicYear != null || a.term != null) {
+      return `Year ${a.academicYear ?? '—'} · Term ${a.term ?? '—'}`;
+    }
+    return key;
+  }
+  const m = /^(\w+)-(\d{4})$/.exec(String(key));
+  if (m) return `${m[1].charAt(0).toUpperCase() + m[1].slice(1)} ${m[2]}`;
+  return key;
+}
 
 const FeesPage: React.FC = () => {
   const [students, setStudents] = useState<any[]>([]);
@@ -34,6 +51,20 @@ const FeesPage: React.FC = () => {
   const [savingAccount, setSavingAccount] = useState(false);
 
   const [pendingModalOpen, setPendingModalOpen] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkMode, setBulkMode] = useState<'ALL_ACTIVE' | 'COHORT'>('ALL_ACTIVE');
+  const [bulkSeason, setBulkSeason] = useState<'fall' | 'spring' | 'summer' | 'winter'>('fall');
+  const [bulkCohortYear, setBulkCohortYear] = useState<number>(new Date().getFullYear());
+  const [bulkOnlyActive, setBulkOnlyActive] = useState(true);
+  const [bulkAmount, setBulkAmount] = useState('');
+  const [bulkPreview, setBulkPreview] = useState<{
+    total: number;
+    feeBucketKey: string;
+    sample: { _id?: string; name?: string; studentId?: string; cohortLabel?: string }[];
+    skippedMissingCohort: number;
+  } | null>(null);
+  const [bulkPreviewLoading, setBulkPreviewLoading] = useState(false);
+  const [bulkApplying, setBulkApplying] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [instructionsModalOpen, setInstructionsModalOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -183,6 +214,124 @@ const FeesPage: React.FC = () => {
     return null;
   };
 
+  const bulkCohortPreviewLabel = useMemo(() => {
+    if (bulkMode !== 'COHORT') return null;
+    const s = bulkSeason.charAt(0).toUpperCase() + bulkSeason.slice(1);
+    return `${s} ${bulkCohortYear}`;
+  }, [bulkMode, bulkSeason, bulkCohortYear]);
+
+  /** Enough to call the API: amount set, and cohort fields when in COHORT mode. Preview is optional. */
+  const bulkFormValid = useMemo(() => {
+    if (String(bulkAmount).trim() === '') return false;
+    const amt = Number(bulkAmount);
+    if (Number.isNaN(amt) || amt < 0) return false;
+    if (bulkMode === 'COHORT') {
+      const y = Number(bulkCohortYear);
+      if (Number.isNaN(y) || y < 2000 || y > 2100) return false;
+    }
+    return true;
+  }, [bulkAmount, bulkMode, bulkCohortYear]);
+
+  const bulkApplyDisabled =
+    bulkApplying ||
+    bulkPreviewLoading ||
+    !bulkFormValid ||
+    (bulkPreview !== null && bulkPreview.total === 0);
+
+  const openBulkModal = () => {
+    setBulkMode('ALL_ACTIVE');
+    setBulkSeason('fall');
+    setBulkCohortYear(new Date().getFullYear());
+    setBulkOnlyActive(true);
+    setBulkAmount('');
+    setBulkPreview(null);
+    setBulkModalOpen(true);
+  };
+
+  const runBulkPreview = async () => {
+    const amt = Number(bulkAmount);
+    if (Number.isNaN(amt) || amt < 0) {
+      toast.error('Enter a valid amount (RWF)');
+      return;
+    }
+    setBulkPreviewLoading(true);
+    setBulkPreview(null);
+    try {
+      const body: Record<string, unknown> = {
+        mode: bulkMode,
+        totalAmountDue: amt,
+        onlyActive: bulkOnlyActive,
+        dryRun: true,
+      };
+      if (bulkMode === 'COHORT') {
+        body.enrollmentSeason = bulkSeason;
+        body.enrollmentCohortYear = Number(bulkCohortYear);
+      }
+      const res = await bulkUpsertFeeAccounts(body);
+      const d = res.data as {
+        total: number;
+        feeBucketKey: string;
+        sample: { _id?: string; name?: string; studentId?: string; cohortLabel?: string }[];
+        skippedMissingCohort?: number;
+      };
+      if (d == null) {
+        toast.error('Unexpected preview response');
+        return;
+      }
+      setBulkPreview({
+        total: d.total,
+        feeBucketKey: d.feeBucketKey,
+        sample: d.sample || [],
+        skippedMissingCohort: d.skippedMissingCohort ?? 0,
+      });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Preview failed');
+      setBulkPreview(null);
+    } finally {
+      setBulkPreviewLoading(false);
+    }
+  };
+
+  const applyBulkFees = async () => {
+    const amt = Number(bulkAmount);
+    if (Number.isNaN(amt) || amt < 0) {
+      toast.error('Enter a valid amount (RWF)');
+      return;
+    }
+    setBulkApplying(true);
+    try {
+      const body: Record<string, unknown> = {
+        mode: bulkMode,
+        totalAmountDue: amt,
+        onlyActive: bulkOnlyActive,
+        dryRun: false,
+      };
+      if (bulkMode === 'COHORT') {
+        body.enrollmentSeason = bulkSeason;
+        body.enrollmentCohortYear = Number(bulkCohortYear);
+      }
+      const res = await bulkUpsertFeeAccounts(body);
+      const d = res.data as { applied?: number; failed?: { studentId: string; reason: string }[]; feeBucketKey?: string };
+      const applied = d?.applied ?? 0;
+      const failed = d?.failed?.length ?? 0;
+      const label = bulkMode === 'COHORT' && bulkCohortPreviewLabel ? bulkCohortPreviewLabel : 'all active students';
+      if (failed > 0) {
+        toast.success(
+          `Updated ${applied} fee ${applied === 1 ? 'account' : 'accounts'} (${label}). ${failed} could not be updated.`
+        );
+      } else {
+        toast.success(`Updated ${applied} fee ${applied === 1 ? 'account' : 'accounts'} (${label})`);
+      }
+      setBulkModalOpen(false);
+      setBulkPreview(null);
+      await loadData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Bulk update failed');
+    } finally {
+      setBulkApplying(false);
+    }
+  };
+
   return (
     <DashboardLayout>
       <ToastContainer position="top-right" autoClose={2500} />
@@ -190,7 +339,7 @@ const FeesPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">School fees</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Each area below is separate: review submissions, view accounts, create accounts, and configure payment instructions.
+            Each area below is separate: review submissions, view accounts, single or bulk fee assignment, and payment instructions.
           </p>
         </div>
 
@@ -224,7 +373,7 @@ const FeesPage: React.FC = () => {
         </div>
 
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 [&>div:last-of-type]:lg:col-span-2">
           {/* 3 — Create / update fee account (card + modal) */}
           <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/60 to-white p-6 shadow-sm">
             <div className="flex items-start gap-3">
@@ -249,7 +398,31 @@ const FeesPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 4 — Payment instructions (card + modal) */}
+          {/* Bulk fee assignment */}
+          <div className="rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50/60 to-white p-6 shadow-sm">
+            <div className="flex items-start gap-3">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-800">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-semibold text-gray-900">Bulk fee assignment</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Set the same total due (RWF) for all active students or for one intake cohort (e.g. Fall 2026). Amounts already paid are unchanged; balance updates from the model.
+                </p>
+                <button
+                  type="button"
+                  onClick={openBulkModal}
+                  className="mt-4 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-teal-700"
+                >
+                  Open bulk assignment
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment instructions (card + modal) */}
           <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/60 to-white p-6 shadow-sm">
             <div className="flex items-start gap-3">
               <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-800">
@@ -340,6 +513,7 @@ const FeesPage: React.FC = () => {
                 <thead className="bg-gray-50 text-left text-gray-700">
                   <tr>
                     <th className="px-4 py-3 font-medium">Student</th>
+                    <th className="px-4 py-3 font-medium">Cohort / bucket</th>
                     <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Due</th>
                     <th className="px-4 py-3 font-medium">Paid</th>
@@ -350,14 +524,15 @@ const FeesPage: React.FC = () => {
                   {accounts.map((a) => (
                     <tr key={a._id} className="hover:bg-gray-50/80">
                       <td className="px-4 py-3 font-medium text-gray-900">{a.studentId?.name || '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{formatFeeAccountCohort(a)}</td>
                       <td className="px-4 py-3">
                         <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
                           {a.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-700">{a.totalAmountDue}</td>
-                      <td className="px-4 py-3 text-gray-700">{a.totalAmountPaid}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{a.balance}</td>
+                      <td className="px-4 py-3 text-gray-700">{formatRwf(a.totalAmountDue)}</td>
+                      <td className="px-4 py-3 text-gray-700">{formatRwf(a.totalAmountPaid)}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900">{formatRwf(a.balance)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -396,7 +571,7 @@ const FeesPage: React.FC = () => {
                   <div className="min-w-0 space-y-1">
                     <p className="font-semibold text-gray-900">{s.studentId?.name || 'Student'}</p>
                     <p className="text-sm text-gray-700">
-                      <span className="font-medium">{s.amountSubmitted}</span> · {s.paymentMethod}
+                      <span className="font-medium">{formatRwf(s.amountSubmitted)}</span> · {s.paymentMethod}
                     </p>
                     <p className="text-xs text-gray-600">Reference: {s.paymentReference || '—'}</p>
                     {(() => {
@@ -474,6 +649,203 @@ const FeesPage: React.FC = () => {
         </div>
       </Modal>
 
+      {/* Modal: bulk fee assignment */}
+      <Modal
+        isOpen={bulkModalOpen}
+        onClose={() => {
+          if (!bulkApplying && !bulkPreviewLoading) setBulkModalOpen(false);
+        }}
+        title="Bulk fee assignment"
+        size="lg"
+      >
+        <div className="space-y-4 text-sm text-gray-700">
+          <p>
+            Choose who receives the same <strong>total amount due</strong> (RWF). This flow does not use academic year or
+            term. Existing <strong>amounts paid</strong> on each row stay as stored; balance and status follow the fee
+            account rules.
+          </p>
+          <fieldset>
+            <legend className="mb-2 font-medium text-gray-900">Who</legend>
+            <div className="flex flex-col gap-2">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="bulkMode"
+                  checked={bulkMode === 'ALL_ACTIVE'}
+                  onChange={() => {
+                    setBulkMode('ALL_ACTIVE');
+                    setBulkPreview(null);
+                  }}
+                />
+                <span>All active students in this school</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="bulkMode"
+                  checked={bulkMode === 'COHORT'}
+                  onChange={() => {
+                    setBulkMode('COHORT');
+                    setBulkPreview(null);
+                  }}
+                />
+                <span>By intake cohort (enrollment season + cohort year)</span>
+              </label>
+            </div>
+          </fieldset>
+          {bulkMode === 'COHORT' ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block font-medium text-gray-900">Season</label>
+                <select
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                  value={bulkSeason}
+                  onChange={(e) => {
+                    setBulkSeason(e.target.value as 'fall' | 'spring' | 'summer' | 'winter');
+                    setBulkPreview(null);
+                  }}
+                >
+                  <option value="fall">Fall</option>
+                  <option value="spring">Spring</option>
+                  <option value="summer">Summer</option>
+                  <option value="winter">Winter</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block font-medium text-gray-900">Cohort year</label>
+                <input
+                  type="number"
+                  min={2000}
+                  max={2100}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                  value={bulkCohortYear}
+                  onChange={(e) => {
+                    setBulkCohortYear(Number(e.target.value));
+                    setBulkPreview(null);
+                  }}
+                />
+              </div>
+              <p className="sm:col-span-2 text-xs text-gray-600">
+                Cohort label: <span className="font-semibold text-gray-900">{bulkCohortPreviewLabel}</span>
+              </p>
+            </div>
+          ) : null}
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={bulkOnlyActive}
+              onChange={(e) => {
+                setBulkOnlyActive(e.target.checked);
+                setBulkPreview(null);
+              }}
+            />
+            <span>Only active students</span>
+          </label>
+          <div>
+            <label className="mb-1 block font-medium text-gray-900">Total amount due (RWF)</label>
+            <input
+              type="number"
+              min={0}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2"
+              placeholder="e.g. 500000"
+              value={bulkAmount}
+              onChange={(e) => {
+                setBulkAmount(e.target.value);
+                setBulkPreview(null);
+              }}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+            <button
+              type="button"
+              disabled={bulkPreviewLoading || bulkApplying}
+              onClick={() => void runBulkPreview()}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {bulkPreviewLoading ? 'Loading preview…' : 'Preview'}
+            </button>
+            <button
+              type="button"
+              disabled={bulkApplyDisabled}
+              onClick={() => void applyBulkFees()}
+              className="rounded-lg bg-teal-600 px-4 py-2 font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+            >
+              {bulkApplying
+                ? 'Applying…'
+                : bulkPreview && bulkPreview.total > 0
+                  ? `Apply to ${bulkPreview.total} student${bulkPreview.total === 1 ? '' : 's'}`
+                  : 'Apply fees'}
+            </button>
+          </div>
+          {bulkPreviewLoading ? (
+            <div
+              className="rounded-xl border border-gray-200 bg-gray-50/80 p-4"
+              aria-busy="true"
+              aria-label="Loading preview"
+            >
+              <div className="space-y-2">
+                <div className="h-4 w-3/4 max-w-xs animate-pulse rounded bg-gray-200" />
+                <div className="h-4 w-48 animate-pulse rounded bg-gray-200" />
+              </div>
+              <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white">
+                <div className="grid grid-cols-3 gap-2 border-b border-gray-100 bg-gray-50 px-2 py-2">
+                  <div className="h-3 animate-pulse rounded bg-gray-200" />
+                  <div className="h-3 animate-pulse rounded bg-gray-200" />
+                  <div className="h-3 animate-pulse rounded bg-gray-200" />
+                </div>
+                <div className="divide-y divide-gray-100 px-2 py-1">
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="grid grid-cols-3 gap-2 py-2">
+                      <div className="h-3 animate-pulse rounded bg-gray-100" />
+                      <div className="h-3 w-2/3 animate-pulse rounded bg-gray-100" />
+                      <div className="h-3 w-1/2 animate-pulse rounded bg-gray-100" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-gray-500">Loading preview…</p>
+            </div>
+          ) : bulkPreview ? (
+            <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4">
+              <p className="font-medium text-gray-900">
+                {bulkPreview.total} student{bulkPreview.total === 1 ? '' : 's'} · bucket{' '}
+                <code className="rounded bg-gray-200 px-1 text-xs">{bulkPreview.feeBucketKey}</code>
+              </p>
+              {bulkMode === 'COHORT' && bulkPreview.skippedMissingCohort > 0 ? (
+                <p className="mt-2 text-xs text-amber-800">
+                  Note: {bulkPreview.skippedMissingCohort} active student
+                  {bulkPreview.skippedMissingCohort === 1 ? '' : 's'} in the school lack enrollment season or cohort year
+                  and are not included in this cohort.
+                </p>
+              ) : null}
+              {bulkPreview.sample.length > 0 ? (
+                <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                  <table className="min-w-full text-xs">
+                    <thead className="bg-gray-50 text-left text-gray-700">
+                      <tr>
+                        <th className="px-2 py-2 font-medium">Name</th>
+                        <th className="px-2 py-2 font-medium">Student ID</th>
+                        <th className="px-2 py-2 font-medium">Cohort</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {bulkPreview.sample.map((row, idx) => (
+                        <tr key={String(row._id || row.studentId || `${row.name || 'row'}-${idx}`)}>
+                          <td className="px-2 py-2">{row.name || '—'}</td>
+                          <td className="px-2 py-2 text-gray-600">{row.studentId || '—'}</td>
+                          <td className="px-2 py-2 text-gray-600">{row.cohortLabel || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+              <p className="mt-2 text-xs text-gray-500">Sample shows up to 20 students (sorted by name).</p>
+            </div>
+          ) : null}
+        </div>
+      </Modal>
+
       {/* Modal: fee account form */}
       <Modal
         isOpen={accountModalOpen}
@@ -500,11 +872,11 @@ const FeesPage: React.FC = () => {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Total amount due</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Total amount due (RWF)</label>
             <input
               type="number"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="Total amount due"
+              placeholder="e.g. 500000"
               value={accountForm.totalAmountDue}
               onChange={(e) => setAccountForm({ ...accountForm, totalAmountDue: e.target.value })}
               required

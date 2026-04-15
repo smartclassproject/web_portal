@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { getStudentFees, submitStudentFeeProof } from '../../services/studentPortalService';
 import { uploadFileAsset } from '../../services/uploadService';
 import { publicUploadUrl } from '../../utils/publicUploadUrl';
+import { formatRwf } from '../../utils/formatRwf';
 
 const StudentFeesPage: React.FC = () => {
   const [data, setData] = useState<any>(null);
@@ -86,9 +87,9 @@ const StudentFeesPage: React.FC = () => {
           <h2 className="text-lg font-semibold mb-3">Fee Status</h2>
           {account ? (
             <div className="space-y-2 text-sm text-gray-700">
-              <p><span className="font-medium">Total due:</span> {account.totalAmountDue}</p>
-              <p><span className="font-medium">Total paid:</span> {account.totalAmountPaid}</p>
-              <p><span className="font-medium">Balance:</span> {account.balance}</p>
+              <p><span className="font-medium">Total due:</span> {formatRwf(account.totalAmountDue)}</p>
+              <p><span className="font-medium">Total paid:</span> {formatRwf(account.totalAmountPaid)}</p>
+              <p><span className="font-medium">Balance:</span> {formatRwf(account.balance)}</p>
               <p><span className="font-medium">Status:</span> {account.status}</p>
             </div>
           ) : (
@@ -118,7 +119,7 @@ const StudentFeesPage: React.FC = () => {
         <form className="space-y-3" onSubmit={submit}>
           <input
             className="w-full border rounded-lg px-3 py-2"
-            placeholder="Amount paid"
+            placeholder="Amount paid (RWF), e.g. 50000"
             type="number"
             value={form.amountSubmitted}
             onChange={(e) => setForm((p) => ({ ...p, amountSubmitted: e.target.value }))}

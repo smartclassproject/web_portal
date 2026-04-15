@@ -20,6 +20,11 @@ export const upsertFeeAccount = async (payload: Record<string, unknown>) => {
   return response.data;
 };
 
+export const bulkUpsertFeeAccounts = async (payload: Record<string, unknown>) => {
+  const response = await axiosInstance.post('/api/fees/accounts/bulk', payload);
+  return response.data;
+};
+
 export const getPaymentSubmissions = async (params?: Record<string, string | number>) => {
   const response = await axiosInstance.get('/api/fees/submissions', { params });
   return response.data;
