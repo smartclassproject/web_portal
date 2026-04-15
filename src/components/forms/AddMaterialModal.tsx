@@ -4,19 +4,41 @@ import type { Material, Course } from '../../types';
 import { toast } from 'react-toastify';
 import { uploadFileAsset } from '../../services/uploadService';
 
+type MaterialFileType = Material['fileType'];
+
+function inferFileTypeFromFileName(fileName: string): MaterialFileType {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  if (ext === 'pdf') return 'pdf';
+  if (ext === 'ppt') return 'ppt';
+  if (ext === 'pptx') return 'pptx';
+  if (['mp4', 'webm', 'mov', 'mkv', 'avi', 'm4v'].includes(ext)) return 'video';
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'heic'].includes(ext)) return 'image';
+  if (['doc', 'docx', 'txt', 'rtf', 'odt'].includes(ext)) return 'document';
+  return 'other';
+}
+
+function normalizeHttpUrl(raw: string): string {
+  const t = raw.trim();
+  if (!t) return '';
+  if (/^https?:\/\//i.test(t)) return t;
+  return `https://${t}`;
+}
+
+export type MaterialSubmitPayload = {
+  courseId: string;
+  title: string;
+  description?: string;
+  fileType: MaterialFileType;
+  fileUrl: string;
+  fileName?: string;
+  fileSize?: number;
+  isPublished?: boolean;
+};
+
 interface AddMaterialModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (materialData: {
-    courseId: string;
-    title: string;
-    description?: string;
-    fileType: 'pdf' | 'ppt' | 'pptx' | 'video' | 'image' | 'document' | 'other';
-    fileUrl: string;
-    fileName?: string;
-    fileSize?: number;
-    isPublished?: boolean;
-  }) => void;
+  onSubmit: (materialData: MaterialSubmitPayload) => void;
   initialData?: Material | null;
   courses: Course[];
   isEdit?: boolean;
@@ -36,7 +58,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
     courseId: '',
     title: '',
     description: '',
-    fileType: 'pdf' as 'pdf' | 'ppt' | 'pptx' | 'video' | 'image' | 'document' | 'other',
+    fileType: 'document' as MaterialFileType,
     fileUrl: '',
     fileName: '',
     fileSize: 0,
@@ -65,8 +87,6 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked }));
-    } else if (name === 'fileSize') {
-      setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -75,13 +95,27 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
     }
   };
 
+  const handleFileTypeSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const next = e.target.value as MaterialFileType;
+    setFormData(prev => {
+      if (next === 'link' && prev.fileType !== 'link') {
+        return { ...prev, fileType: 'link', fileUrl: '', fileName: '', fileSize: 0 };
+      }
+      if (next !== 'link' && prev.fileType === 'link') {
+        return { ...prev, fileType: next, fileUrl: '', fileName: '', fileSize: 0 };
+      }
+      return { ...prev, fileType: next };
+    });
+    setErrors(prev => ({ ...prev, fileUrl: '', fileType: '' }));
+  };
+
   const handleClose = () => {
     if (!loading) {
       setFormData({
         courseId: '',
         title: '',
         description: '',
-        fileType: 'pdf',
+        fileType: 'document',
         fileUrl: '',
         fileName: '',
         fileSize: 0,
@@ -96,43 +130,59 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
     const newErrors: Record<string, string> = {};
     if (!formData.courseId.trim()) newErrors.courseId = 'Course is required';
     if (!formData.title.trim()) newErrors.title = 'Title is required';
-    if (!formData.fileUrl.trim()) newErrors.fileUrl = 'File URL is required';
-    else if (!/^https?:\/\/.+/.test(formData.fileUrl)) newErrors.fileUrl = 'Invalid URL format';
+
+    if (formData.fileType === 'link') {
+      const url = normalizeHttpUrl(formData.fileUrl);
+      if (!formData.fileUrl.trim()) newErrors.fileUrl = 'Enter the link URL';
+      else if (!/^https?:\/\/.+/i.test(url)) newErrors.fileUrl = 'Enter a valid http(s) URL';
+    } else {
+      if (!formData.fileUrl.trim()) {
+        newErrors.fileUrl = isEdit ? 'Add a file or keep the existing resource' : 'Upload a file to attach this material';
+      } else if (!/^https?:\/\/.+/i.test(formData.fileUrl.trim())) {
+        newErrors.fileUrl = 'Invalid resource URL';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      onSubmit({
-        courseId: formData.courseId.trim(),
-        title: formData.title.trim(),
-        description: formData.description.trim() || undefined,
-        fileType: formData.fileType,
-        fileUrl: formData.fileUrl.trim(),
-        fileName: formData.fileName.trim() || undefined,
-        fileSize: formData.fileSize || undefined,
-        isPublished: formData.isPublished
+    if (!validateForm()) return;
+
+    const fileUrl =
+      formData.fileType === 'link'
+        ? normalizeHttpUrl(formData.fileUrl)
+        : formData.fileUrl.trim();
+
+    onSubmit({
+      courseId: formData.courseId.trim(),
+      title: formData.title.trim(),
+      description: formData.description.trim() || undefined,
+      fileType: formData.fileType,
+      fileUrl,
+      fileName: formData.fileName.trim() || undefined,
+      fileSize: formData.fileSize || undefined,
+      isPublished: formData.isPublished
+    });
+    if (!loading) {
+      setFormData({
+        courseId: '',
+        title: '',
+        description: '',
+        fileType: 'document',
+        fileUrl: '',
+        fileName: '',
+        fileSize: 0,
+        isPublished: false
       });
-      if (!loading) {
-        setFormData({
-          courseId: '',
-          title: '',
-          description: '',
-          fileType: 'pdf',
-          fileUrl: '',
-          fileName: '',
-          fileSize: 0,
-          isPublished: false
-        });
-        setErrors({});
-      }
+      setErrors({});
     }
   };
 
   const handleUploadFile = async (file?: File | null) => {
-    if (!file) return;
+    if (!file || formData.fileType === 'link') return;
     try {
       setIsUploadingAsset(true);
       const res = await uploadFileAsset('study_material', file);
@@ -140,24 +190,30 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       if (!data.url) {
         throw new Error('Upload did not return file URL');
       }
+      const name = (data.originalName as string) || file.name;
+      const detected = inferFileTypeFromFileName(name);
       setFormData((prev) => ({
         ...prev,
-        fileUrl: data.url,
-        fileName: data.originalName || file.name,
+        fileUrl: data.url as string,
+        fileName: name,
         fileSize: Number(data.sizeBytes || file.size || 0),
+        fileType: detected
       }));
       setErrors((prev) => ({ ...prev, fileUrl: '' }));
-      toast.success('File uploaded successfully');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || error.message || 'Failed to upload file');
+      toast.success(`Uploaded — type set to ${detected.toUpperCase()} (you can change it below)`);
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(err.response?.data?.message || err.message || 'Failed to upload file');
     } finally {
       setIsUploadingAsset(false);
     }
   };
 
+  const isLink = formData.fileType === 'link';
+
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title={isEdit ? "Edit Material" : "Upload New Material"} size="lg">
-      <form onSubmit={handleSubmit} className="space-y-6">
+    <Modal isOpen={isOpen} onClose={handleClose} title={isEdit ? 'Edit material' : 'Upload material'} size="lg">
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="courseId" className="block text-sm font-medium text-gray-700 mb-2">Course *</label>
           <select
@@ -174,6 +230,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
           </select>
           {errors.courseId && <p className="mt-1 text-sm text-red-600">{errors.courseId}</p>}
         </div>
+
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
           <input
@@ -183,29 +240,31 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
             value={formData.title}
             onChange={handleChange}
             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.title ? 'border-red-500' : 'border-gray-300'}`}
-            placeholder="e.g., Physics Chapter 1 Notes"
+            placeholder="e.g. Chapter 3 — Forces"
           />
           {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title}</p>}
         </div>
+
         <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">Description (optional)</label>
           <textarea
             id="description"
             name="description"
             value={formData.description}
             onChange={handleChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            rows={3}
-            placeholder="Optional description of the material"
+            rows={2}
+            placeholder="Short note for students"
           />
         </div>
+
         <div>
-          <label htmlFor="fileType" className="block text-sm font-medium text-gray-700 mb-2">File Type *</label>
+          <label htmlFor="fileType" className="block text-sm font-medium text-gray-700 mb-2">File type *</label>
           <select
             id="fileType"
             name="fileType"
             value={formData.fileType}
-            onChange={handleChange}
+            onChange={handleFileTypeSelect}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
           >
             <option value="pdf">PDF</option>
@@ -215,72 +274,68 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
             <option value="image">Image</option>
             <option value="document">Document</option>
             <option value="other">Other</option>
+            <option value="link">External link</option>
           </select>
+          <p className="mt-1 text-xs text-gray-500">
+            {isLink
+              ? 'Paste any web address (YouTube, Drive, article, …).'
+              : 'Upload a file — we detect the type from the file; you can change it here after upload.'}
+          </p>
         </div>
-        <div>
-          <label htmlFor="fileUrl" className="block text-sm font-medium text-gray-700 mb-2">File URL *</label>
-          <input
-            type="url"
-            id="fileUrl"
-            name="fileUrl"
-            value={formData.fileUrl}
-            onChange={handleChange}
-            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.fileUrl ? 'border-red-500' : 'border-gray-300'}`}
-            placeholder="https://example.com/file.pdf"
-          />
-          {errors.fileUrl && <p className="mt-1 text-sm text-red-600">{errors.fileUrl}</p>}
-          <p className="mt-1 text-xs text-gray-500">Paste URL or upload directly below using reusable upload API.</p>
-          <div className="mt-2">
+
+        {isLink ? (
+          <div>
+            <label htmlFor="linkUrl" className="block text-sm font-medium text-gray-700 mb-2">URL *</label>
+            <input
+              type="text"
+              id="linkUrl"
+              name="fileUrl"
+              value={formData.fileUrl}
+              onChange={handleChange}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.fileUrl ? 'border-red-500' : 'border-gray-300'}`}
+              placeholder="https://… or example.com/resource"
+            />
+            {errors.fileUrl && <p className="mt-1 text-sm text-red-600">{errors.fileUrl}</p>}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-4 space-y-3">
+            <label className="block text-sm font-medium text-gray-700">File</label>
             <input
               type="file"
               onChange={(e) => handleUploadFile(e.target.files?.[0])}
               disabled={loading || isUploadingAsset}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-white file:text-sm"
             />
             {isUploadingAsset ? (
-              <p className="mt-1 text-xs text-blue-600">Uploading file...</p>
+              <p className="text-xs text-blue-600">Uploading…</p>
+            ) : null}
+            {formData.fileUrl && !isLink ? (
+              <p className="text-xs text-green-700 break-all">
+                Resource ready. {formData.fileName ? <span className="font-medium">{formData.fileName}</span> : null}
+                {formData.fileSize ? <span> · {(formData.fileSize / 1024).toFixed(1)} KB</span> : null}
+              </p>
+            ) : null}
+            {errors.fileUrl && <p className="text-sm text-red-600">{errors.fileUrl}</p>}
+            {isEdit && formData.fileUrl && !isUploadingAsset ? (
+              <p className="text-xs text-gray-500">Upload a new file to replace the current one.</p>
             ) : null}
           </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label htmlFor="fileName" className="block text-sm font-medium text-gray-700 mb-2">File Name</label>
-            <input
-              type="text"
-              id="fileName"
-              name="fileName"
-              value={formData.fileName}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Optional file name"
-            />
-          </div>
-          <div>
-            <label htmlFor="fileSize" className="block text-sm font-medium text-gray-700 mb-2">File Size (bytes)</label>
-            <input
-              type="number"
-              id="fileSize"
-              name="fileSize"
-              value={formData.fileSize}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Optional file size"
-            />
-          </div>
-        </div>
+        )}
+
         <div>
-          <label className="flex items-center">
+          <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
               name="isPublished"
               checked={formData.isPublished}
               onChange={handleChange}
-              className="mr-2"
+              className="rounded border-gray-300"
             />
             <span className="text-sm font-medium text-gray-700">Publish to students</span>
           </label>
         </div>
-        <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+
+        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
           <button
             type="button"
             onClick={handleClose}
@@ -296,11 +351,11 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
           >
             {loading || isUploadingAsset ? (
               <>
-                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-                {isUploadingAsset ? 'Uploading file...' : isEdit ? 'Updating...' : 'Uploading...'}
+                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                {isUploadingAsset ? 'Uploading…' : isEdit ? 'Saving…' : 'Saving…'}
               </>
             ) : (
-              isEdit ? 'Update Material' : 'Upload Material'
+              isEdit ? 'Save changes' : 'Add material'
             )}
           </button>
         </div>

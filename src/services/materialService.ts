@@ -5,7 +5,7 @@ export interface CreateMaterialData {
   courseId: string;
   title: string;
   description?: string;
-  fileType: 'pdf' | 'ppt' | 'pptx' | 'video' | 'image' | 'document' | 'other';
+  fileType: 'pdf' | 'ppt' | 'pptx' | 'video' | 'image' | 'document' | 'other' | 'link';
   fileUrl: string;
   fileName?: string;
   fileSize?: number;
@@ -15,7 +15,7 @@ export interface CreateMaterialData {
 export interface UpdateMaterialData {
   title?: string;
   description?: string;
-  fileType?: 'pdf' | 'ppt' | 'pptx' | 'video' | 'image' | 'document' | 'other';
+  fileType?: 'pdf' | 'ppt' | 'pptx' | 'video' | 'image' | 'document' | 'other' | 'link';
   fileUrl?: string;
   fileName?: string;
   fileSize?: number;

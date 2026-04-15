@@ -290,7 +290,7 @@ export interface Material {
   teacherId: string | Teacher;
   title: string;
   description?: string;
-  fileType: 'pdf' | 'ppt' | 'pptx' | 'video' | 'image' | 'document' | 'other';
+  fileType: 'pdf' | 'ppt' | 'pptx' | 'video' | 'image' | 'document' | 'other' | 'link';
   fileUrl: string;
   fileName?: string;
   fileSize?: number;

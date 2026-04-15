@@ -37,7 +37,7 @@ const TeacherMaterialsPage: React.FC = () => {
     courseId: string;
     title: string;
     description?: string;
-    fileType: 'pdf' | 'ppt' | 'pptx' | 'video' | 'image' | 'document' | 'other';
+    fileType: 'pdf' | 'ppt' | 'pptx' | 'video' | 'image' | 'document' | 'other' | 'link';
     fileUrl: string;
     fileName?: string;
     fileSize?: number;
@@ -87,6 +87,8 @@ const TeacherMaterialsPage: React.FC = () => {
         return '🖼️';
       case 'document':
         return '📝';
+      case 'link':
+        return '🔗';
       default:
         return '📎';
     }
@@ -159,7 +161,9 @@ const TeacherMaterialsPage: React.FC = () => {
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-800 underline"
                       >
-                        {material.fileName || 'View File'}
+                        {material.fileType === 'link'
+                          ? 'Open link'
+                          : material.fileName || 'View file'}
                       </a>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

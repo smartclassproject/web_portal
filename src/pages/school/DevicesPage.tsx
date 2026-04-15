@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { getSchoolDevices } from '../../services/deviceService';
+import { getPaymentInstructions } from '../../services/feesService';
 import type { Device } from '../../types';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -22,6 +24,31 @@ const DevicesPage: React.FC = () => {
   const [appliedStatusFilter, setAppliedStatusFilter] = useState('all');
   const [appliedIsActiveFilter, setAppliedIsActiveFilter] = useState('all');
   const [filtersModified, setFiltersModified] = useState(false);
+  const [feePaymentBanner, setFeePaymentBanner] = useState<{
+    bankName: string | null;
+    accountHolder: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await getPaymentInstructions();
+        const d = res?.data as Record<string, unknown> | undefined;
+        const bankName = (d?.bankName as string | undefined)?.trim() || null;
+        const accountHolder =
+          (d?.bankAccountName as string | undefined)?.trim() ||
+          (d?.momoAccountName as string | undefined)?.trim() ||
+          null;
+        if (bankName || accountHolder) {
+          setFeePaymentBanner({ bankName, accountHolder });
+        } else {
+          setFeePaymentBanner(null);
+        }
+      } catch {
+        setFeePaymentBanner(null);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -139,6 +166,32 @@ const DevicesPage: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-900">RFID Devices</h1>
             <p className="text-gray-500">View and monitor RFID devices in your school</p>
           </div>
+
+          {feePaymentBanner ? (
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-900">
+              <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-1">
+                {feePaymentBanner.bankName ? (
+                  <>
+                    <span className="font-semibold">Bank name:</span>
+                    <span>{feePaymentBanner.bankName}</span>
+                  </>
+                ) : null}
+                {feePaymentBanner.bankName && feePaymentBanner.accountHolder ? (
+                  <span className="text-emerald-800/80">·</span>
+                ) : null}
+                {feePaymentBanner.accountHolder ? (
+                  <>
+                    <span className="font-semibold">Account holder:</span>
+                    <span>{feePaymentBanner.accountHolder}</span>
+                  </>
+                ) : null}
+                <span className="text-emerald-800/80">·</span>
+                <Link to="/school/fees" className="font-medium text-emerald-800 underline hover:text-emerald-950">
+                  Edit on School fees
+                </Link>
+              </span>
+            </div>
+          ) : null}
 
           {/* Filters */}
           <div className="bg-white rounded-xl shadow-md p-6">
