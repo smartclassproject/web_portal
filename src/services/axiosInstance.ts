@@ -3,7 +3,13 @@ import axios from 'axios';
 const isBrowser = typeof window !== 'undefined';
 const isHttpsPage = isBrowser && window.location.protocol === 'https:';
 const configuredBackendUrl = import.meta.env.VITE_BACKEND_URL?.trim();
-const backendUrl = configuredBackendUrl || (isHttpsPage ? '/api' : 'http://localhost:5000');
+const insecureConfiguredOnHttps = Boolean(
+  isHttpsPage && configuredBackendUrl && configuredBackendUrl.startsWith('http://')
+);
+const backendUrl =
+  insecureConfiguredOnHttps
+    ? '/api'
+    : (configuredBackendUrl || (isHttpsPage ? '/api' : 'http://localhost:5000'));
 const apiDebugEnabled = import.meta.env.VITE_DEBUG_API === 'true';
 
 const nowMs = () =>
@@ -17,6 +23,12 @@ const toAbsoluteUrl = (base: string | undefined, url: string | undefined) => {
   if (!base) return url;
   return `${base.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
 };
+
+if (insecureConfiguredOnHttps) {
+  console.warn(
+    '[SmartClass] Ignoring insecure VITE_BACKEND_URL on HTTPS page and falling back to /api proxy.'
+  );
+}
 
 const axiosInstance = axios.create({
   baseURL: backendUrl,
