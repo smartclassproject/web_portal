@@ -8,8 +8,8 @@ const insecureConfiguredOnHttps = Boolean(
 );
 const backendUrl =
   insecureConfiguredOnHttps
-    ? '/api'
-    : (configuredBackendUrl || (isHttpsPage ? '/api' : 'http://localhost:5000'));
+    ? ''
+    : (configuredBackendUrl || (isHttpsPage ? '' : 'http://localhost:5000'));
 const apiDebugEnabled = import.meta.env.VITE_DEBUG_API === 'true';
 
 const nowMs = () =>
@@ -26,7 +26,7 @@ const toAbsoluteUrl = (base: string | undefined, url: string | undefined) => {
 
 if (insecureConfiguredOnHttps) {
   console.warn(
-    '[SmartClass] Ignoring insecure VITE_BACKEND_URL on HTTPS page and falling back to /api proxy.'
+    '[SmartClass] Ignoring insecure VITE_BACKEND_URL on HTTPS page and falling back to same-origin API routes.'
   );
 }
 
