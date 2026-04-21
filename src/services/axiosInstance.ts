@@ -1,6 +1,18 @@
 import axios from 'axios';
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+const configuredBackendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+const isHttpsPage = typeof window !== 'undefined' && window.location.protocol === 'https:';
+const backendUrl =
+  isHttpsPage && configuredBackendUrl.startsWith('http://')
+    ? configuredBackendUrl.replace(/^http:\/\//, 'https://')
+    : configuredBackendUrl;
+
+if (isHttpsPage && configuredBackendUrl.startsWith('http://')) {
+  console.error(
+    '[SmartClass] Insecure VITE_BACKEND_URL blocked on HTTPS page. ' +
+      `Configured: ${configuredBackendUrl}. Using: ${backendUrl}`
+  );
+}
 
 const axiosInstance = axios.create({
   baseURL: backendUrl,
@@ -38,6 +50,13 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   (error) => {
+    // Surface likely deployment misconfigurations with a clearer message.
+    if (!error.response && isHttpsPage && configuredBackendUrl.startsWith('http://')) {
+      console.error(
+        '[SmartClass] Request failed before reaching backend. ' +
+          'Set VITE_BACKEND_URL to a valid HTTPS API URL in Vercel environment variables.'
+      );
+    }
     const data = error.response?.data;
     if (
       data &&
