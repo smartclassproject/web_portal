@@ -26,7 +26,7 @@ const toAbsoluteUrl = (base: string | undefined, url: string | undefined) => {
 
 if (insecureConfiguredOnHttps) {
   console.warn(
-    '[SmartClass] Ignoring insecure VITE_BACKEND_URL on HTTPS page and falling back to same-origin API routes.'
+    '[RiseMe] Ignoring insecure VITE_BACKEND_URL on HTTPS page and falling back to same-origin API routes.'
   );
 }
 
@@ -51,7 +51,7 @@ axiosInstance.interceptors.request.use(
 
     if (apiDebugEnabled) {
       const absoluteUrl = toAbsoluteUrl(config.baseURL, config.url);
-      console.info('[SmartClass API] Request', {
+      console.info('[RiseMe API] Request', {
         method: (config.method || 'GET').toUpperCase(),
         url: absoluteUrl,
         baseURL: config.baseURL,
@@ -69,7 +69,7 @@ axiosInstance.interceptors.response.use(
       const startAt = (response.config as typeof response.config & { __requestStartAt?: number }).__requestStartAt;
       const durationMs = typeof startAt === 'number' ? Math.round(nowMs() - startAt) : undefined;
       const absoluteUrl = toAbsoluteUrl(response.config.baseURL, response.config.url);
-      console.info('[SmartClass API] Response', {
+      console.info('[RiseMe API] Response', {
         method: (response.config.method || 'GET').toUpperCase(),
         url: absoluteUrl,
         status: response.status,
@@ -96,7 +96,7 @@ axiosInstance.interceptors.response.use(
       const startAt = (config as typeof config & { __requestStartAt?: number }).__requestStartAt;
       const durationMs = typeof startAt === 'number' ? Math.round(nowMs() - startAt) : undefined;
       const absoluteUrl = toAbsoluteUrl(config.baseURL, config.url);
-      console.error('[SmartClass API] Error', {
+      console.error('[RiseMe API] Error', {
         method: (config.method || 'GET').toUpperCase(),
         url: absoluteUrl,
         status: error.response?.status,
@@ -110,7 +110,7 @@ axiosInstance.interceptors.response.use(
     // Surface likely deployment misconfigurations with a clearer message.
     if (!error.response && isHttpsPage && backendUrl.startsWith('https://') && /:\d+/.test(backendUrl)) {
       console.error(
-        '[SmartClass] Request failed before reaching backend. ' +
+        '[RiseMe] Request failed before reaching backend. ' +
           'Use Vercel /api rewrite proxy or a valid HTTPS API domain with a trusted certificate.'
       );
     }
