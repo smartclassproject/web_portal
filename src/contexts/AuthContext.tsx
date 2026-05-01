@@ -54,6 +54,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         name: backendUser.name || `${backendUser.firstName || ''} ${backendUser.lastName || ''}`.trim() || backendUser.email,
         schoolId: backendUser.schoolId,
         teacherId: backendUser.teacherId,
+        modules: Array.isArray(backendUser.modules) ? backendUser.modules : [],
         requiresPasswordChange: requiresPasswordChange || backendUser.requiresPasswordChange || false,
       };
 
@@ -97,6 +98,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       name: (backendUser.name as string) || ((backendUser.firstName || backendUser.lastName) ? `${backendUser.firstName ?? ''} ${backendUser.lastName ?? ''}`.trim() : (backendUser.email as string)) || '',
       schoolId: backendUser.schoolId as string | undefined,
       teacherId: backendUser.teacherId as string | undefined,
+      modules: Array.isArray(backendUser.modules) ? (backendUser.modules as string[]) : [],
       requiresPasswordChange: false,
     };
     setUser(user);

@@ -32,6 +32,7 @@ import ReportCardsPage from './pages/school/ReportCardsPage';
 import FeesPage from './pages/school/FeesPage';
 import AnnouncementsPage from './pages/school/AnnouncementsPage';
 import InquiriesPage from './pages/school/InquiriesPage';
+import SchoolStaffPage from './pages/school/SchoolStaffPage';
 import './index.css';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import TeacherSetPasswordPage from './pages/TeacherSetPasswordPage';
@@ -42,15 +43,25 @@ import StudentProfilePage from './pages/student/StudentProfilePage';
 import StudentHelpPage from './pages/student/StudentHelpPage';
 import StudentPrivacyPolicyPage from './pages/student/StudentPrivacyPolicyPage';
 import StudentChangePasswordPage from './pages/student/StudentChangePasswordPage';
+import NotAuthorizedPage from './pages/NotAuthorizedPage';
 
 // Route protection component
-const RequireAuth: React.FC<{ children: React.ReactNode; role?: 'super_admin' | 'school_admin' | 'teacher' | 'student' }> = ({ children, role }) => {
+const RequireAuth: React.FC<{
+  children: React.ReactNode;
+  role?: 'super_admin' | 'school_admin' | 'teacher' | 'student' | 'school_staff';
+  roles?: Array<'super_admin' | 'school_admin' | 'teacher' | 'student' | 'school_staff'>;
+  moduleKey?: string;
+}> = ({ children, role, roles, moduleKey }) => {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
   if (isLoading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
-  if (role && user.role !== role) return <Navigate to="/login" replace />;
+  const allowedRoles = roles || (role ? [role] : []);
+  if (allowedRoles.length && !allowedRoles.includes(user.role)) return <Navigate to="/login" replace />;
+  if (moduleKey && user.role === 'school_staff' && !(user.modules || []).includes(moduleKey)) {
+    return <Navigate to="/not-authorized" replace />;
+  }
   return <>{children}</>;
 };
 
@@ -61,6 +72,19 @@ const RedirectToDashboard: React.FC = () => {
   if (user.role === 'super_admin') return <Navigate to="/admin/dashboard" replace />;
   if (user.role === 'teacher') return <Navigate to="/teacher/dashboard" replace />;
   if (user.role === 'student') return <Navigate to="/student/fees" replace />;
+  if (user.role === 'school_staff') {
+    const moduleToRoute: Record<string, string> = {
+      students: '/school/students',
+      teachers: '/school/teachers',
+      courses: '/school/courses',
+      finance: '/school/fees',
+      announcements: '/school/announcements',
+      inquiries: '/school/inquiries',
+      reports: '/school/report-cards',
+    };
+    const firstRoute = (user.modules || []).map((moduleKey) => moduleToRoute[moduleKey]).find(Boolean);
+    return <Navigate to={firstRoute || '/not-authorized'} replace />;
+  }
   return <Navigate to="/school/dashboard" replace />;
 };
 
@@ -73,6 +97,7 @@ const App: React.FC = () => {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/setup-password" element={<SetupPasswordPage />} />
           <Route path="/teacher/set-password" element={<TeacherSetPasswordPage />} />
+          <Route path="/not-authorized" element={<NotAuthorizedPage />} />
           <Route path="/" element={<RedirectToDashboard />} />
           <Route
             path="/admin/dashboard"
@@ -133,7 +158,7 @@ const App: React.FC = () => {
           <Route
             path="/school/teachers"
             element={
-              <RequireAuth role="school_admin">
+              <RequireAuth roles={['school_admin', 'school_staff']} moduleKey="teachers">
                 <TeachersPage />
               </RequireAuth>
             }
@@ -141,7 +166,7 @@ const App: React.FC = () => {
           <Route
             path="/school/students"
             element={
-              <RequireAuth role="school_admin">
+              <RequireAuth roles={['school_admin', 'school_staff']} moduleKey="students">
                 <StudentsPage />
               </RequireAuth>
             }
@@ -149,7 +174,7 @@ const App: React.FC = () => {
           <Route
             path="/school/majors"
             element={
-              <RequireAuth role="school_admin">
+              <RequireAuth roles={['school_admin', 'school_staff']} moduleKey="courses">
                 <MajorsPage />
               </RequireAuth>
             }
@@ -157,7 +182,7 @@ const App: React.FC = () => {
           <Route
             path="/school/classes"
             element={
-              <RequireAuth role="school_admin">
+              <RequireAuth roles={['school_admin', 'school_staff']} moduleKey="courses">
                 <ClassesPage />
               </RequireAuth>
             }
@@ -165,7 +190,7 @@ const App: React.FC = () => {
           <Route
             path="/school/courses"
             element={
-              <RequireAuth role="school_admin">
+              <RequireAuth roles={['school_admin', 'school_staff']} moduleKey="courses">
                 <CoursesPage />
               </RequireAuth>
             }
@@ -173,7 +198,7 @@ const App: React.FC = () => {
           <Route
             path="/school/schedules"
             element={
-              <RequireAuth role="school_admin">
+              <RequireAuth roles={['school_admin', 'school_staff']} moduleKey="courses">
                 <SchedulesPage />
               </RequireAuth>
             }
@@ -189,7 +214,7 @@ const App: React.FC = () => {
           <Route
             path="/school/attendance"
             element={
-              <RequireAuth role="school_admin">
+              <RequireAuth roles={['school_admin', 'school_staff']} moduleKey="reports">
                 <AttendancePage />
               </RequireAuth>
             }
@@ -197,7 +222,7 @@ const App: React.FC = () => {
           <Route
             path="/school/report-cards"
             element={
-              <RequireAuth role="school_admin">
+              <RequireAuth roles={['school_admin', 'school_staff']} moduleKey="reports">
                 <ReportCardsPage />
               </RequireAuth>
             }
@@ -206,7 +231,7 @@ const App: React.FC = () => {
           <Route
             path="/school/fees"
             element={
-              <RequireAuth role="school_admin">
+              <RequireAuth roles={['school_admin', 'school_staff']} moduleKey="finance">
                 <FeesPage />
               </RequireAuth>
             }
@@ -214,7 +239,7 @@ const App: React.FC = () => {
           <Route
             path="/school/announcements"
             element={
-              <RequireAuth role="school_admin">
+              <RequireAuth roles={['school_admin', 'school_staff']} moduleKey="announcements">
                 <AnnouncementsPage />
               </RequireAuth>
             }
@@ -222,8 +247,17 @@ const App: React.FC = () => {
           <Route
             path="/school/inquiries"
             element={
-              <RequireAuth role="school_admin">
+              <RequireAuth roles={['school_admin', 'school_staff']} moduleKey="inquiries">
                 <InquiriesPage />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/school/staff"
+            element={
+              <RequireAuth role="school_admin">
+                <SchoolStaffPage />
               </RequireAuth>
             }
           />

@@ -7,12 +7,25 @@ interface MenuItem {
   name: string;
   path: string;
   icon: React.ReactNode;
-  roles: ('super_admin' | 'school_admin' | 'teacher')[];
+  roles: ('super_admin' | 'school_admin' | 'teacher' | 'school_staff')[];
 }
 
 const Sidebar: React.FC = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const moduleRouteMap: Record<string, string> = {
+    '/school/students': 'students',
+    '/school/teachers': 'teachers',
+    '/school/courses': 'courses',
+    '/school/majors': 'courses',
+    '/school/classes': 'courses',
+    '/school/schedules': 'courses',
+    '/school/fees': 'finance',
+    '/school/attendance': 'reports',
+    '/school/report-cards': 'reports',
+    '/school/announcements': 'announcements',
+    '/school/inquiries': 'inquiries',
+  };
 
   const menuItems: MenuItem[] = [
     // Super Admin Menu Items
@@ -211,6 +224,16 @@ const Sidebar: React.FC = () => {
       roles: ['school_admin']
     },
     {
+      name: 'Staff Management',
+      path: '/school/staff',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5V4H2v16h5m10 0v-2a4 4 0 00-4-4H11a4 4 0 00-4 4v2m10 0H7m8-10a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+      roles: ['school_admin']
+    },
+    {
       name: 'Account',
       path: '/school/account',
       icon: (
@@ -316,9 +339,19 @@ const Sidebar: React.FC = () => {
     }
   ];
 
-  const filteredMenuItems = menuItems.filter(item => 
-    item.roles.includes(user?.role || 'school_admin')
-  );
+  const filteredMenuItems = menuItems.filter((item) => {
+    const currentRole = user?.role;
+    if (!currentRole || currentRole === 'student') return false;
+    if (currentRole !== 'school_staff' && !item.roles.includes(currentRole)) return false;
+    if (currentRole === 'school_staff' && !item.path.startsWith('/school/')) return false;
+
+    if (currentRole !== 'school_staff') return true;
+
+    // Staff can only see module-backed entries.
+    const requiredModule = moduleRouteMap[item.path];
+    if (!requiredModule) return false;
+    return (user?.modules || []).includes(requiredModule);
+  });
 
   return (
     <div className="bg-white shadow-lg w-64 min-h-screen flex flex-col">
@@ -333,7 +366,13 @@ const Sidebar: React.FC = () => {
           {/* <h1 className="text-xl font-bold text-gray-900">RiseMe</h1> */}
         </div>
         <p className="text-xs font-semibold text-black-500 mt-1 text-center mb-3">
-          {user?.role === 'super_admin' ? 'Super Admin' : user?.role === 'teacher' ? 'Teacher Portal' : 'School Admin'}
+          {user?.role === 'super_admin'
+            ? 'Super Admin'
+            : user?.role === 'teacher'
+              ? 'Teacher Portal'
+              : user?.role === 'school_staff'
+                ? 'School Staff'
+                : 'School Admin'}
         </p>
       </div>
 

@@ -191,10 +191,11 @@ export interface Device {
 export interface User {
   id: string;
   email: string;
-  role: "super_admin" | "school_admin" | "teacher" | "student";
+  role: "super_admin" | "school_admin" | "teacher" | "student" | "school_staff";
   schoolId?: string;
   teacherId?: string;
   name: string;
+  modules?: string[];
   requiresPasswordChange?: boolean;
 }
 
