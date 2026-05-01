@@ -101,7 +101,7 @@ const Sidebar: React.FC = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z" />
         </svg>
       ),
-      roles: ['school_admin']
+      roles: ['school_admin', 'school_staff']
     },
     {
       name: 'Students',
@@ -241,7 +241,7 @@ const Sidebar: React.FC = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
-      roles: ['school_admin']
+      roles: ['school_admin', 'school_staff']
     },
     {
       name: 'Settings',
@@ -347,7 +347,10 @@ const Sidebar: React.FC = () => {
 
     if (currentRole !== 'school_staff') return true;
 
-    // Staff can only see module-backed entries.
+    // School staff always sees dashboard + account, other entries are module-backed.
+    if (item.path === '/school/dashboard' || item.path === '/school/account') return true;
+
+    // Staff can only see module-backed feature entries.
     const requiredModule = moduleRouteMap[item.path];
     if (!requiredModule) return false;
     return (user?.modules || []).includes(requiredModule);

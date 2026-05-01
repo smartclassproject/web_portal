@@ -26,6 +26,7 @@ import TeacherMaterialsPage from './pages/teacher/TeacherMaterialsPage';
 import TeacherTermResultsPage from './pages/teacher/TeacherTermResultsPage';
 import SchoolSettingsPage from './pages/school/SchoolSettingsPage';
 import SchoolAccountPage from './pages/school/SchoolAccountPage';
+import SchoolStaffAccountPage from './pages/school/SchoolStaffAccountPage';
 import TeacherAccountPage from './pages/teacher/TeacherAccountPage';
 import AdminAccountPage from './pages/admin/AdminAccountPage';
 import ReportCardsPage from './pages/school/ReportCardsPage';
@@ -72,20 +73,16 @@ const RedirectToDashboard: React.FC = () => {
   if (user.role === 'super_admin') return <Navigate to="/admin/dashboard" replace />;
   if (user.role === 'teacher') return <Navigate to="/teacher/dashboard" replace />;
   if (user.role === 'student') return <Navigate to="/student/fees" replace />;
-  if (user.role === 'school_staff') {
-    const moduleToRoute: Record<string, string> = {
-      students: '/school/students',
-      teachers: '/school/teachers',
-      courses: '/school/courses',
-      finance: '/school/fees',
-      announcements: '/school/announcements',
-      inquiries: '/school/inquiries',
-      reports: '/school/report-cards',
-    };
-    const firstRoute = (user.modules || []).map((moduleKey) => moduleToRoute[moduleKey]).find(Boolean);
-    return <Navigate to={firstRoute || '/not-authorized'} replace />;
-  }
+  if (user.role === 'school_staff') return <Navigate to="/school/dashboard" replace />;
   return <Navigate to="/school/dashboard" replace />;
+};
+
+const SchoolAccountRoute: React.FC = () => {
+  const { user } = useAuth();
+  if (user?.role === 'school_staff') {
+    return <SchoolStaffAccountPage />;
+  }
+  return <SchoolAccountPage />;
 };
 
 const App: React.FC = () => {
@@ -150,7 +147,7 @@ const App: React.FC = () => {
           <Route
             path="/school/dashboard"
             element={
-              <RequireAuth role="school_admin">
+              <RequireAuth roles={['school_admin', 'school_staff']}>
                 <SchoolDashboard />
               </RequireAuth>
             }
@@ -273,8 +270,8 @@ const App: React.FC = () => {
           <Route
             path="/school/account"
             element={
-              <RequireAuth role="school_admin">
-                <SchoolAccountPage />
+              <RequireAuth roles={['school_admin', 'school_staff']}>
+                <SchoolAccountRoute />
               </RequireAuth>
             }
           />

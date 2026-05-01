@@ -19,6 +19,8 @@ const LoginPage: React.FC = () => {
         navigate('/admin/dashboard');
       } else if (user.role === 'school_admin') {
         navigate('/school/dashboard');
+      } else if (user.role === 'school_staff') {
+        navigate('/');
       } else if (user.role === 'teacher') {
         navigate('/teacher/dashboard');
       } else if (user.role === 'student') {
@@ -58,6 +60,8 @@ const LoginPage: React.FC = () => {
         navigate('/admin/dashboard');
       } else if (user.role === 'school_admin') {
         navigate('/school/dashboard');
+      } else if (user.role === 'school_staff') {
+        navigate('/');
       } else if (user.role === 'teacher') {
         navigate('/teacher/dashboard');
       } else if (user.role === 'student') {

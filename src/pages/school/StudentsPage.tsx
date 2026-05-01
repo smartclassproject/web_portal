@@ -7,11 +7,9 @@ import AddStudentModal from '../../components/forms/AddStudentModal';
 import type { StudentFormSubmitValues } from '../../components/forms/AddStudentModal';
 import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../contexts/AuthContext';
-import { getSchoolStudents, createStudent, updateStudent, deleteStudent } from '../../services/studentService';
+import { getSchoolStudents, createStudent, updateStudent, deleteStudent, getStudentDependencies } from '../../services/studentService';
 import { getMySchool } from '../../services/schoolService';
-import { getSchoolMajors } from '../../services/majorService';
 import { publicUploadUrl } from '../../utils/publicUploadUrl';
-import { getClasses } from '../../services/classService';
 import type { Student, Major, EnrollmentSeason } from '../../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -43,7 +41,8 @@ const StudentsPage: React.FC = () => {
   const [classes, setClasses] = useState<{ _id: string; name: string; code?: string }[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(false);
-  const [majorsLoading, setMajorsLoading] = useState(false);
+  const [dependenciesLoading, setDependenciesLoading] = useState(false);
+  const [dependenciesError, setDependenciesError] = useState('');
   const [error, setError] = useState('');
   const [addLoading, setAddLoading] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
@@ -63,15 +62,20 @@ const StudentsPage: React.FC = () => {
 
   const handleOpenAddStudent = async () => {
     if (!user?.schoolId) return;
+    if (dependenciesLoading) return;
+    if (majors.length === 0 || classes.length === 0) {
+      toast.error('Please wait for majors/classes to load before adding students.');
+      return;
+    }
     setOpeningAddModal(true);
     try {
       await fetchSchoolTerms();
-      setIsAddModalOpen(true);
     } catch {
-      toast.error('Could not load school settings');
-    } finally {
-      setOpeningAddModal(false);
+      // Keep defaults if school settings endpoint is blocked for this role.
+      toast.info('Using default term settings for this session.');
     }
+    setIsAddModalOpen(true);
+    setOpeningAddModal(false);
   };
 
   const filteredStudents = students.filter(s => 
@@ -98,29 +102,20 @@ const StudentsPage: React.FC = () => {
     }
   };
 
-  const fetchMajors = async () => {
+  const fetchStudentDependencies = async () => {
     if (!user?.schoolId) return;
-    setMajorsLoading(true);
+    setDependenciesLoading(true);
+    setDependenciesError('');
     try {
-      const response = await getSchoolMajors();
-      setMajors(response.data || []);
+      const response = await getStudentDependencies();
+      setMajors(response.data?.majors || []);
+      setClasses(response.data?.classes || []);
     } catch (err: any) {
       console.error(err);
-      toast.error('Failed to fetch majors');
-    } finally {
-      setMajorsLoading(false);
+      setDependenciesError(err.response?.data?.message || 'Failed to load majors/classes');
+      toast.error('Failed to load majors/classes');
     }
-  };
-
-  const fetchClasses = async () => {
-    if (!user?.schoolId) return;
-    try {
-      const response = await getClasses();
-      setClasses(response.data || []);
-    } catch (err: any) {
-      console.error(err);
-      toast.error('Failed to fetch classes');
-    }
+    setDependenciesLoading(false);
   };
 
   const fetchSchoolTerms = async () => {
@@ -145,8 +140,7 @@ const StudentsPage: React.FC = () => {
 
   useEffect(() => {
     fetchStudents();
-    fetchMajors();
-    fetchClasses();
+    fetchStudentDependencies();
     fetchSchoolTerms();
   }, [user?.schoolId, page]);
 
@@ -375,6 +369,20 @@ const StudentsPage: React.FC = () => {
           </select>
         </div>
 
+        {dependenciesError ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center justify-between gap-3">
+            <span>{dependenciesError}. Student create/edit needs these lookups.</span>
+            <button
+              type="button"
+              onClick={fetchStudentDependencies}
+              disabled={dependenciesLoading}
+              className="px-3 py-1.5 bg-amber-600 text-white rounded-md disabled:opacity-50"
+            >
+              {dependenciesLoading ? 'Retrying…' : 'Retry'}
+            </button>
+          </div>
+        ) : null}
+
         {students.length === 0 ? (
           <div className="text-center py-12">
             <img src="/no_data.jpg" alt="No data" className="w-32 h-32 mx-auto mb-4 opacity-50" />
@@ -525,7 +533,7 @@ const StudentsPage: React.FC = () => {
           numberOfTerms={numberOfTerms}
           enrollmentSemestersEnabled={enrollmentSemestersEnabled}
           defaultEnrollmentSemester={defaultEnrollmentSemester}
-          loading={addLoading}
+          loading={addLoading || dependenciesLoading}
         />
 
         {/* Edit Student Modal */}
@@ -543,7 +551,7 @@ const StudentsPage: React.FC = () => {
           defaultEnrollmentSemester={defaultEnrollmentSemester}
           initialData={selectedStudent}
           isEdit={true}
-          loading={editLoading}
+          loading={editLoading || dependenciesLoading}
         />
 
         {/* Delete Confirmation Modal */}

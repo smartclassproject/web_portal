@@ -5,6 +5,16 @@ export const getSchoolStudents = async (page = 1, limit = 10) => {
   return response.data;
 };
 
+export type StudentDependenciesResponse = {
+  majors: Array<{ _id: string; name: string; code?: string }>;
+  classes: Array<{ _id: string; name: string; code?: string }>;
+};
+
+export const getStudentDependencies = async () => {
+  const response = await axiosInstance.get('/api/students/dependencies');
+  return response.data as { success: boolean; data: StudentDependenciesResponse };
+};
+
 export const uploadStudentPhoto = async (file: File) => {
   const form = new FormData();
   form.append('photo', file);

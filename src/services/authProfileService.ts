@@ -11,6 +11,11 @@ export type ProfileResponse =
       role: 'super_admin' | 'school_admin';
       admin: Record<string, unknown>;
       school: Record<string, unknown> | null;
+    }
+  | {
+      role: 'school_staff';
+      staff: Record<string, unknown>;
+      school: Record<string, unknown> | null;
     };
 
 export const getProfile = async () => {
