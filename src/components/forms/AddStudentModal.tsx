@@ -82,6 +82,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
 }) => {
   const currentYear = new Date().getFullYear();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const [formData, setFormData] = useState({
     name: '',
     cardId: '',
@@ -104,6 +105,10 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
   const [existingProfileUrl, setExistingProfileUrl] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
 
   const maxTerm = Math.min(Math.max(numberOfTerms || 3, 1), 6);
   const showBusyOverlay = loading || isSubmitting;
@@ -189,11 +194,20 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
 
   useEffect(() => {
     return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop());
+      }
       if (photoPreview && photoPreview.startsWith('blob:')) {
         URL.revokeObjectURL(photoPreview);
       }
     };
-  }, [photoPreview]);
+  }, [photoPreview, cameraStream]);
+
+  useEffect(() => {
+    if (cameraVideoRef.current && cameraStream) {
+      cameraVideoRef.current.srcObject = cameraStream;
+    }
+  }, [cameraStream, isCameraModalOpen]);
 
   useEffect(() => {
     if (!isOpen) setIsSubmitting(false);
@@ -219,6 +233,83 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
     setPhotoFile(f);
     setPhotoPreview(URL.createObjectURL(f));
     setErrors((prev) => ({ ...prev, photo: '' }));
+  };
+
+  const isLikelyMobileDevice = () =>
+    /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+
+  const stopCameraStream = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+    }
+  };
+
+  const openCameraCapture = async () => {
+    setCameraError('');
+    if (isLikelyMobileDevice()) {
+      fileInputRef.current?.click();
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      fileInputRef.current?.click();
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false,
+      });
+      setCameraStream(stream);
+      setIsCameraModalOpen(true);
+    } catch {
+      setCameraError('Camera access denied or unavailable. You can upload an existing photo instead.');
+      fileInputRef.current?.click();
+    }
+  };
+
+  const closeCameraModal = () => {
+    stopCameraStream();
+    setIsCameraModalOpen(false);
+  };
+
+  const captureFromCamera = async () => {
+    if (!cameraVideoRef.current) return;
+    setIsCapturingPhoto(true);
+    try {
+      const video = cameraVideoRef.current;
+      const width = video.videoWidth || 640;
+      const height = video.videoHeight || 480;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        setCameraError('Failed to capture photo. Try upload instead.');
+        return;
+      }
+      ctx.drawImage(video, 0, 0, width, height);
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', 0.92)
+      );
+      if (!blob) {
+        setCameraError('Failed to capture photo. Try upload instead.');
+        return;
+      }
+
+      const capturedFile = new File([blob], `student-camera-${Date.now()}.jpg`, {
+        type: 'image/jpeg',
+      });
+      if (photoPreview?.startsWith('blob:')) URL.revokeObjectURL(photoPreview);
+      setPhotoFile(capturedFile);
+      setPhotoPreview(URL.createObjectURL(capturedFile));
+      setErrors((prev) => ({ ...prev, photo: '' }));
+      closeCameraModal();
+    } finally {
+      setIsCapturingPhoto(false);
+    }
   };
 
   const validateForm = () => {
@@ -295,6 +386,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
 
   const handleClose = () => {
     if (!loading && !isSubmitting) {
+      closeCameraModal();
       if (photoPreview?.startsWith('blob:')) URL.revokeObjectURL(photoPreview);
       setPhotoFile(null);
       setPhotoPreview(null);
@@ -334,22 +426,37 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">Profile photo (optional)</label>
             <div className="flex flex-wrap items-center gap-4">
               <div className="h-20 w-20 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center">
-                {displayImg ? (
-                  <img src={displayImg} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-xs text-gray-400 text-center px-1">No photo</span>
-                )}
-              </div>
-              <div>
-                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onPickPhoto} />
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={openCameraCapture}
+                  className="h-full w-full"
+                  title="Capture from camera or upload"
+                >
+                  {displayImg ? (
+                    <img src={displayImg} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-xs text-gray-400 text-center px-1">Take photo</span>
+                  )}
+                </button>
+              </div>
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={onPickPhoto}
+                />
+                <button
+                  type="button"
+                  onClick={openCameraCapture}
                   className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300"
                 >
-                  {isEdit ? 'Change photo' : 'Upload photo'}
+                  {isEdit ? 'Capture / Change photo' : 'Capture / Upload photo'}
                 </button>
-                <p className="text-xs text-gray-500 mt-1">Optional. JPEG, PNG, or WebP. Max 5 MB. Stored on the server.</p>
+                <p className="text-xs text-gray-500 mt-1">Tap/click image to open camera. Optional. JPEG/PNG/WebP, max 5 MB.</p>
+                {cameraError ? <p className="mt-1 text-xs text-amber-700">{cameraError}</p> : null}
               </div>
             </div>
             {errors.photo && <p className="mt-1 text-sm text-red-600">{errors.photo}</p>}
@@ -699,6 +806,33 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
         </div>
       </form>
       </div>
+      {isCameraModalOpen ? (
+        <div className="fixed inset-0 z-[120] bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-xl rounded-xl bg-white p-4 space-y-3">
+            <h3 className="text-lg font-semibold text-gray-900">Take Student Photo</h3>
+            <div className="overflow-hidden rounded-lg bg-black">
+              <video ref={cameraVideoRef} autoPlay playsInline className="w-full max-h-[60vh] object-contain" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeCameraModal}
+                className="px-3 py-2 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={captureFromCamera}
+                disabled={isCapturingPhoto}
+                className="px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isCapturingPhoto ? 'Capturing...' : 'Capture'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </Modal>
   );
 };
