@@ -4,6 +4,7 @@ import { getProfile, patchProfile, changePassword, uploadProfilePhoto } from '..
 import { updateMySchool } from '../../services/schoolService';
 import { publicUploadUrl } from '../../utils/publicUploadUrl';
 import { toast } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 
 const SchoolAccountPage: React.FC = () => {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -20,6 +21,17 @@ const SchoolAccountPage: React.FC = () => {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingSchool, setSavingSchool] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
+  const [initialProfile, setInitialProfile] = useState({
+    adminName: '',
+    adminPhone: '',
+    profileUrl: '',
+  });
+  const [initialSchool, setInitialSchool] = useState({
+    schoolName: '',
+    schoolLocation: '',
+    shortCode: '',
+    numberOfTerms: 3,
+  });
 
   const load = async () => {
     setLoading(true);
@@ -39,11 +51,22 @@ const SchoolAccountPage: React.FC = () => {
       setAdminName((admin.name as string) || '');
       setAdminPhone((admin.phone as string) || '');
       setProfileUrl(admin.profileUrl as string | undefined);
+      setInitialProfile({
+        adminName: ((admin.name as string) || '').trim(),
+        adminPhone: ((admin.phone as string) || '').trim(),
+        profileUrl: ((admin.profileUrl as string) || '').trim(),
+      });
       if (school) {
         setSchoolName((school.name as string) || '');
         setSchoolLocation((school.location as string) || '');
         setShortCode((school.shortCode as string) || '');
         setNumberOfTerms(school.numberOfTerms ?? 3);
+        setInitialSchool({
+          schoolName: ((school.name as string) || '').trim(),
+          schoolLocation: ((school.location as string) || '').trim(),
+          shortCode: ((school.shortCode as string) || '').trim().toUpperCase(),
+          numberOfTerms: school.numberOfTerms ?? 3,
+        });
       }
     } catch {
       toast.error('Failed to load account');
@@ -60,6 +83,11 @@ const SchoolAccountPage: React.FC = () => {
     setSavingProfile(true);
     try {
       await patchProfile({ name: adminName.trim(), phone: adminPhone.trim(), profileUrl });
+      setInitialProfile({
+        adminName: adminName.trim(),
+        adminPhone: adminPhone.trim(),
+        profileUrl: (profileUrl || '').trim(),
+      });
       toast.success('Profile saved');
     } catch (e: unknown) {
       const m = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -83,6 +111,12 @@ const SchoolAccountPage: React.FC = () => {
         shortCode: code || undefined,
         numberOfTerms,
       });
+      setInitialSchool({
+        schoolName: schoolName.trim(),
+        schoolLocation: schoolLocation.trim(),
+        shortCode: code,
+        numberOfTerms,
+      });
       toast.success('School details saved');
     } catch (e: unknown) {
       const m = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -100,6 +134,7 @@ const SchoolAccountPage: React.FC = () => {
       if (res.data?.profileUrl) {
         setProfileUrl(res.data.profileUrl);
         await patchProfile({ profileUrl: res.data.profileUrl });
+        setInitialProfile((prev) => ({ ...prev, profileUrl: (res.data?.profileUrl || '').trim() }));
         toast.success('Photo updated');
       }
     } catch {
@@ -110,6 +145,10 @@ const SchoolAccountPage: React.FC = () => {
   const savePassword = async () => {
     if (!curPw || !newPw) {
       toast.error('Fill current and new password');
+      return;
+    }
+    if (newPw.length < 6) {
+      toast.error('Password must be at least 6 characters long');
       return;
     }
     setSavingPw(true);
@@ -135,6 +174,21 @@ const SchoolAccountPage: React.FC = () => {
   }
 
   const img = profileUrl ? publicUploadUrl(profileUrl) : null;
+  const normalizedShortCode = shortCode.trim().toUpperCase();
+  const isShortCodeValid = !normalizedShortCode || (normalizedShortCode.length >= 2 && normalizedShortCode.length <= 6);
+  const hasProfileChanges =
+    adminName.trim() !== initialProfile.adminName ||
+    adminPhone.trim() !== initialProfile.adminPhone ||
+    (profileUrl || '').trim() !== initialProfile.profileUrl;
+  const hasSchoolChanges =
+    schoolName.trim() !== initialSchool.schoolName ||
+    schoolLocation.trim() !== initialSchool.schoolLocation ||
+    normalizedShortCode !== initialSchool.shortCode ||
+    numberOfTerms !== initialSchool.numberOfTerms;
+  const canSaveProfile = !!adminName.trim() && hasProfileChanges && !savingProfile;
+  const canSaveSchool = !!schoolName.trim() && isShortCodeValid && hasSchoolChanges && !savingSchool;
+  const isNewPasswordValid = newPw.length >= 6;
+  const canSavePassword = !!curPw.trim() && !!newPw.trim() && curPw !== newPw && isNewPasswordValid && !savingPw;
 
   return (
     <DashboardLayout>
@@ -177,8 +231,8 @@ const SchoolAccountPage: React.FC = () => {
           <button
             type="button"
             onClick={saveProfile}
-            disabled={savingProfile}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50"
+            disabled={!canSaveProfile}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {savingProfile ? 'Saving…' : 'Save profile'}
           </button>
@@ -229,8 +283,8 @@ const SchoolAccountPage: React.FC = () => {
           <button
             type="button"
             onClick={saveSchool}
-            disabled={savingSchool}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg disabled:opacity-50"
+            disabled={!canSaveSchool}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {savingSchool ? 'Saving…' : 'Save school'}
           </button>
@@ -255,17 +309,22 @@ const SchoolAccountPage: React.FC = () => {
               onChange={(e) => setNewPw(e.target.value)}
               className="w-full border rounded-lg px-3 py-2"
             />
+            <div className="mt-2 flex items-center text-xs text-gray-500">
+              <div className={`w-2 h-2 rounded-full mr-2 ${isNewPasswordValid ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <span>At least 6 characters</span>
+            </div>
           </div>
           <button
             type="button"
             onClick={savePassword}
-            disabled={savingPw}
-            className="px-4 py-2 bg-gray-900 text-white rounded-lg disabled:opacity-50"
+            disabled={!canSavePassword}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {savingPw ? 'Updating…' : 'Update password'}
           </button>
         </section>
       </div>
+      <ToastContainer position="top-right" autoClose={3000} />
     </DashboardLayout>
   );
 };

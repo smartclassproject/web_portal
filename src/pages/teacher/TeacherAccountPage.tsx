@@ -19,6 +19,14 @@ const TeacherAccountPage: React.FC = () => {
   const [newPw, setNewPw] = useState('');
   const [saving, setSaving] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
+  const [initialProfile, setInitialProfile] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    department: '',
+    specialization: '',
+    profileUrl: '',
+  });
 
   const load = async () => {
     setLoading(true);
@@ -40,6 +48,14 @@ const TeacherAccountPage: React.FC = () => {
       setDepartment((t.department as string) || '');
       setSpecialization((t.specialization as string) || '');
       setProfileUrl(t.profileUrl as string | undefined);
+      setInitialProfile({
+        name: ((t.name as string) || '').trim(),
+        email: ((t.email as string) || '').trim(),
+        phone: ((t.phone as string) || '').trim(),
+        department: ((t.department as string) || '').trim(),
+        specialization: ((t.specialization as string) || '').trim(),
+        profileUrl: ((t.profileUrl as string) || '').trim(),
+      });
       if (s) {
         setSchoolName((s.name as string) || '');
         setSchoolLocation((s.location as string) || '');
@@ -66,6 +82,14 @@ const TeacherAccountPage: React.FC = () => {
         specialization: specialization.trim(),
         profileUrl,
       });
+      setInitialProfile({
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        department: department.trim(),
+        specialization: specialization.trim(),
+        profileUrl: (profileUrl || '').trim(),
+      });
       toast.success('Profile saved');
     } catch (e: unknown) {
       const m = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -83,6 +107,7 @@ const TeacherAccountPage: React.FC = () => {
       if (res.data?.profileUrl) {
         setProfileUrl(res.data.profileUrl);
         await patchProfile({ profileUrl: res.data.profileUrl });
+        setInitialProfile((prev) => ({ ...prev, profileUrl: (res.data?.profileUrl || '').trim() }));
         toast.success('Photo updated');
       }
     } catch {
@@ -93,6 +118,10 @@ const TeacherAccountPage: React.FC = () => {
   const savePassword = async () => {
     if (!curPw || !newPw) {
       toast.error('Fill current and new password');
+      return;
+    }
+    if (newPw.length < 6) {
+      toast.error('Password must be at least 6 characters long');
       return;
     }
     setSavingPw(true);
@@ -118,6 +147,16 @@ const TeacherAccountPage: React.FC = () => {
   }
 
   const img = profileUrl ? publicUploadUrl(profileUrl) : null;
+  const hasProfileChanges =
+    name.trim() !== initialProfile.name ||
+    email.trim() !== initialProfile.email ||
+    phone.trim() !== initialProfile.phone ||
+    department.trim() !== initialProfile.department ||
+    specialization.trim() !== initialProfile.specialization ||
+    (profileUrl || '').trim() !== initialProfile.profileUrl;
+  const canSaveProfile = !!name.trim() && !!email.trim() && hasProfileChanges && !saving;
+  const isNewPasswordValid = newPw.length >= 6;
+  const canSavePassword = !!curPw.trim() && !!newPw.trim() && curPw !== newPw && isNewPasswordValid && !savingPw;
 
   return (
     <DashboardLayout>
@@ -176,8 +215,8 @@ const TeacherAccountPage: React.FC = () => {
           <button
             type="button"
             onClick={saveProfile}
-            disabled={saving}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50"
+            disabled={!canSaveProfile}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? 'Saving…' : 'Save profile'}
           </button>
@@ -202,12 +241,16 @@ const TeacherAccountPage: React.FC = () => {
               onChange={(e) => setNewPw(e.target.value)}
               className="w-full border rounded-lg px-3 py-2"
             />
+            <div className="mt-2 flex items-center text-xs text-gray-500">
+              <div className={`w-2 h-2 rounded-full mr-2 ${isNewPasswordValid ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <span>At least 6 characters</span>
+            </div>
           </div>
           <button
             type="button"
             onClick={savePassword}
-            disabled={savingPw}
-            className="px-4 py-2 bg-gray-900 text-white rounded-lg disabled:opacity-50"
+            disabled={!canSavePassword}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {savingPw ? 'Updating…' : 'Update password'}
           </button>
