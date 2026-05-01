@@ -20,7 +20,7 @@
         - generic [ref=e19]: Password
         - textbox "Password" [ref=e20]:
           - /placeholder: Enter your password
-          - text: E.Uabcde12345.
+          - text: Staff@123
       - link "Forgot your password?" [ref=e22] [cursor=pointer]:
         - /url: /forgot-password
       - button "Sign In" [ref=e24]:

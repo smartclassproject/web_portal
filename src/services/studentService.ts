@@ -15,6 +15,39 @@ export const getStudentDependencies = async () => {
   return response.data as { success: boolean; data: StudentDependenciesResponse };
 };
 
+export const downloadStudentImportTemplate = async () => {
+  const response = await axiosInstance.get('/api/students/import/template', {
+    responseType: 'blob',
+  });
+  return response.data as Blob;
+};
+
+export type StudentCsvImportRowResult = {
+  rowNumber: number;
+  status: 'created' | 'failed' | 'skipped';
+  studentId?: string;
+  errors: string[];
+};
+
+export type StudentCsvImportResponse = {
+  summary: {
+    totalRows: number;
+    validRows: number;
+    createdCount: number;
+    failedCount: number;
+  };
+  results: StudentCsvImportRowResult[];
+};
+
+export const importStudentsCsv = async (file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  const response = await axiosInstance.post('/api/students/import/csv', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data as { success: boolean; data: StudentCsvImportResponse; message: string };
+};
+
 export const uploadStudentPhoto = async (file: File) => {
   const form = new FormData();
   form.append('photo', file);

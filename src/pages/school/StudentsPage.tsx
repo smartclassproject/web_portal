@@ -4,10 +4,20 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import AddStudentModal from '../../components/forms/AddStudentModal';
+import StudentCsvImportModal from '../../components/forms/StudentCsvImportModal';
 import type { StudentFormSubmitValues } from '../../components/forms/AddStudentModal';
 import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../contexts/AuthContext';
-import { getSchoolStudents, createStudent, updateStudent, deleteStudent, getStudentDependencies } from '../../services/studentService';
+import {
+  getSchoolStudents,
+  createStudent,
+  updateStudent,
+  deleteStudent,
+  getStudentDependencies,
+  downloadStudentImportTemplate,
+  importStudentsCsv,
+} from '../../services/studentService';
+import type { StudentCsvImportResponse } from '../../services/studentService';
 import { getMySchool } from '../../services/schoolService';
 import { publicUploadUrl } from '../../utils/publicUploadUrl';
 import type { Student, Major, EnrollmentSeason } from '../../types';
@@ -36,6 +46,7 @@ const StudentsPage: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [majors, setMajors] = useState<Major[]>([]);
   const [classes, setClasses] = useState<{ _id: string; name: string; code?: string }[]>([]);
@@ -59,6 +70,8 @@ const StudentsPage: React.FC = () => {
   ]);
   const [defaultEnrollmentSemester, setDefaultEnrollmentSemester] = useState<string | null>(null);
   const [openingAddModal, setOpeningAddModal] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<StudentCsvImportResponse | null>(null);
 
   const handleOpenAddStudent = async () => {
     if (!user?.schoolId) return;
@@ -286,6 +299,43 @@ const StudentsPage: React.FC = () => {
     doc.save('students.pdf');
   };
 
+  const canImportStudents =
+    user?.role === 'school_admin' ||
+    (user?.role === 'school_staff' && Array.isArray(user.modules) && user.modules.includes('students'));
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const blob = await downloadStudentImportTemplate();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'students-import-template.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Template downloaded');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to download template');
+    }
+  };
+
+  const handleImportStudentsCsv = async (file: File) => {
+    setImportLoading(true);
+    try {
+      const response = await importStudentsCsv(file);
+      setImportResult(response.data);
+      const created = response.data?.summary?.createdCount || 0;
+      const failed = response.data?.summary?.failedCount || 0;
+      toast.success(`Import completed. Created: ${created}, Failed: ${failed}`);
+      if (created > 0) await fetchStudents();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to import CSV');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -351,6 +401,25 @@ const StudentsPage: React.FC = () => {
               </svg>
               Download PDF
             </button>
+            {canImportStudents ? (
+              <>
+                <button
+                  onClick={handleDownloadTemplate}
+                  className="bg-amber-100 hover:bg-amber-200 text-amber-700 px-4 py-2 rounded-lg font-semibold shadow flex items-center gap-2"
+                >
+                  Download Template
+                </button>
+                <button
+                  onClick={() => {
+                    setImportResult(null);
+                    setIsImportModalOpen(true);
+                  }}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold shadow flex items-center gap-2"
+                >
+                  Import CSV
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -591,6 +660,14 @@ const StudentsPage: React.FC = () => {
             </div>
           </div>
         </Modal>
+
+        <StudentCsvImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onImport={handleImportStudentsCsv}
+          loading={importLoading}
+          result={importResult}
+        />
       </div>
       
       {/* Toast Container for notifications */}

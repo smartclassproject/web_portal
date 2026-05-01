@@ -1,0 +1,54 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - img "RiseMe" [ref=e8]
+      - paragraph [ref=e9]: School Staff
+    - navigation [ref=e10]:
+      - list [ref=e11]:
+        - listitem [ref=e12]:
+          - link "Dashboard" [ref=e13] [cursor=pointer]:
+            - /url: /school/dashboard
+            - img [ref=e14]
+            - generic [ref=e17]: Dashboard
+        - listitem [ref=e18]:
+          - link "Students" [ref=e19] [cursor=pointer]:
+            - /url: /school/students
+            - img [ref=e20]
+            - generic [ref=e22]: Students
+        - listitem [ref=e23]:
+          - link "Teachers" [ref=e24] [cursor=pointer]:
+            - /url: /school/teachers
+            - img [ref=e25]
+            - generic [ref=e27]: Teachers
+        - listitem [ref=e28]:
+          - link "Announcements" [ref=e29] [cursor=pointer]:
+            - /url: /school/announcements
+            - img [ref=e30]
+            - generic [ref=e32]: Announcements
+        - listitem [ref=e33]:
+          - link "Inquiries" [ref=e34] [cursor=pointer]:
+            - /url: /school/inquiries
+            - img [ref=e35]
+            - generic [ref=e37]: Inquiries
+        - listitem [ref=e38]:
+          - link "Account" [ref=e39] [cursor=pointer]:
+            - /url: /school/account
+            - img [ref=e40]
+            - generic [ref=e42]: Account
+    - generic [ref=e43]:
+      - generic [ref=e44]:
+        - img [ref=e46]
+        - generic [ref=e48]:
+          - paragraph [ref=e49]: Esther Umuhoza
+          - paragraph [ref=e50]: eumuhoza83@gmail.com
+      - button "Sign Out" [ref=e51]:
+        - img [ref=e52]
+        - text: Sign Out
+  - main [ref=e54]:
+    - generic [ref=e57]:
+      - paragraph [ref=e58]: Failed to fetch students
+      - button "Try Again" [ref=e59]
+```
