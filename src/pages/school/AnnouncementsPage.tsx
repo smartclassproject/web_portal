@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { getAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from '../../services/announcementService';
@@ -72,7 +72,6 @@ const AnnouncementsPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <ToastContainer position="top-right" autoClose={2500} />
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Announcements</h1>

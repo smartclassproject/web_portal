@@ -1,4 +1,6 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
+import { toast } from 'react-toastify';
+import { getApiErrorMessage } from '../utils/apiErrorMessage';
 
 const isBrowser = typeof window !== 'undefined';
 const isHttpsPage = isBrowser && window.location.protocol === 'https:';
@@ -36,6 +38,27 @@ const axiosInstance = axios.create({
     'Accept': 'application/json',
   },
 });
+
+function shouldSkipGlobalErrorToast(config: InternalAxiosRequestConfig | undefined): boolean {
+  if (!config) return false;
+  if (config.skipErrorToast === true) return true;
+  const path = config.url || '';
+  if (path.startsWith('/api/auth/login')) return true;
+  if (path.startsWith('/api/auth/setup-password')) return true;
+  if (path.startsWith('/api/auth/forgot-password')) return true;
+  if (path.startsWith('/api/auth/reset-password')) return true;
+  if (path.startsWith('/api/auth/teacher/set-password')) return true;
+  if (path.includes('/api/auth/profile')) return true;
+  return false;
+}
+
+function isTokenExpiredPayload(data: unknown): boolean {
+  if (!data || typeof data !== 'object') return false;
+  const d = data as { success?: boolean; message?: string };
+  if (d.success !== false) return false;
+  const m = typeof d.message === 'string' ? d.message.toLowerCase() : '';
+  return d.message === 'Token expired' || m.includes('token expired');
+}
 
 axiosInstance.interceptors.request.use(
   async (config) => {
@@ -115,14 +138,16 @@ axiosInstance.interceptors.response.use(
       );
     }
     const data = error.response?.data;
-    if (
-      data &&
-      data.success === false &&
-      (data.message === 'Token expired' || data.message?.toLowerCase().includes('token expired'))
-    ) {
+    const tokenExpired = isTokenExpiredPayload(data);
+    if (tokenExpired && isBrowser) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
+      return Promise.reject(error);
+    }
+
+    if (isBrowser && !shouldSkipGlobalErrorToast(error.config)) {
+      toast.error(getApiErrorMessage(error));
     }
     return Promise.reject(error);
   }

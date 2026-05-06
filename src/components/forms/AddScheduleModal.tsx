@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 import type { Course, CreateScheduleData, Teacher, WeeklySession } from '../../types';
 import type { ClassItem } from '../../services/classService';
-import { toast } from 'react-toastify';
 // import { WeeklySession, CreateScheduleData } from '../../services/scheduleService';
 
 interface AddScheduleModalProps {
@@ -195,16 +194,7 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
         setIsSubmitting(true);
         await Promise.resolve(onSubmit(scheduleData));
       } catch (error: unknown) {
-        const err = error as {
-          response?: { data?: { message?: string; error?: string } };
-          message?: string;
-        };
-        const message =
-          err.response?.data?.error ||
-          err.response?.data?.message ||
-          err.message ||
-          'Failed to save schedule';
-        toast.error(message);
+        console.error('Schedule save failed:', error);
       } finally {
         setIsSubmitting(false);
       }

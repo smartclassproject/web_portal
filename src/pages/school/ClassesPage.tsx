@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import AddClassModal from '../../components/forms/AddClassModal';
@@ -232,7 +232,6 @@ const ClassesPage: React.FC = () => {
           </div>
         </Modal>
       </div>
-      <ToastContainer position="top-right" autoClose={3000} />
     </DashboardLayout>
   );
 };

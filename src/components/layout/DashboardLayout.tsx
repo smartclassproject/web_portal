@@ -1,4 +1,6 @@
 import React from 'react';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import Sidebar from './Sidebar';
 
 interface DashboardLayoutProps {
@@ -14,6 +16,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           {children}
         </div>
       </main>
+      <ToastContainer position="top-right" autoClose={4000} />
     </div>
   );
 };

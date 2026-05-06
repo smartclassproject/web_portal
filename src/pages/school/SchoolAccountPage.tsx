@@ -4,7 +4,6 @@ import { getProfile, patchProfile, changePassword, uploadProfilePhoto } from '..
 import { updateMySchool } from '../../services/schoolService';
 import { publicUploadUrl } from '../../utils/publicUploadUrl';
 import { toast } from 'react-toastify';
-import { ToastContainer } from 'react-toastify';
 
 const SchoolAccountPage: React.FC = () => {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -324,7 +323,6 @@ const SchoolAccountPage: React.FC = () => {
           </button>
         </section>
       </div>
-      <ToastContainer position="top-right" autoClose={3000} />
     </DashboardLayout>
   );
 };

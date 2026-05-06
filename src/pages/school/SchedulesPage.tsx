@@ -248,7 +248,7 @@ const SchedulesPage: React.FC = () => {
       const response = await getSchedules(1, 100, startDate, endDate);
       setSchedules(response.data);
     } catch (error) {
-      toast.error("Failed to fetch schedules. Please try again.");
+      console.error("Failed to fetch schedules:", error);
     } finally {
       setLoading(false);
     }
@@ -259,7 +259,7 @@ const SchedulesPage: React.FC = () => {
       const response = await getSchoolCourses();
       setCourses(response.data || []);
     } catch (error) {
-      toast.error("Failed to fetch courses. Please try again.");
+      console.error("Failed to fetch courses:", error);
     }
   };
 
@@ -268,7 +268,7 @@ const SchedulesPage: React.FC = () => {
       const response = await getSchoolTeachers();
       setTeachers(response.data || []);
     } catch (error) {
-      toast.error("Failed to fetch teachers. Please try again.");
+      console.error("Failed to fetch teachers:", error);
     }
   };
 
@@ -277,7 +277,7 @@ const SchedulesPage: React.FC = () => {
       const response = await getClasses();
       setClasses(response.data || []);
     } catch (error) {
-      toast.error("Failed to fetch classes. Please try again.");
+      console.error("Failed to fetch classes:", error);
     }
   };
 
@@ -361,7 +361,7 @@ const SchedulesPage: React.FC = () => {
       toast.success("Schedule deleted successfully!");
       fetchSchedules();
     } catch (error) {
-      toast.error("Failed to delete schedule. Please try again.");
+      console.error("Failed to delete schedule:", error);
     } finally {
       setIsDeleting(null);
       setDeletingSchedule(null);

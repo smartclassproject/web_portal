@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import AddStudentModal from '../../components/forms/AddStudentModal';
@@ -109,7 +109,6 @@ const StudentsPage: React.FC = () => {
       setTotalPages(typeof pages === 'number' ? pages : 1);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch students');
-      toast.error('Failed to fetch students');
     } finally {
       setLoading(false);
     }
@@ -126,7 +125,6 @@ const StudentsPage: React.FC = () => {
     } catch (err: any) {
       console.error(err);
       setDependenciesError(err.response?.data?.message || 'Failed to load majors/classes');
-      toast.error('Failed to load majors/classes');
     }
     setDependenciesLoading(false);
   };
@@ -176,7 +174,7 @@ const StudentsPage: React.FC = () => {
       }
       setIsAddModalOpen(false);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to create student');
+      console.error('Create student failed:', err);
     } finally {
       setAddLoading(false);
     }
@@ -211,7 +209,7 @@ const StudentsPage: React.FC = () => {
       setIsEditModalOpen(false);
       setSelectedStudent(null);
     } catch (err) {
-      toast.error('Failed to update student');
+      console.error('Update student failed:', err);
     } finally {
       setEditLoading(false);
     }
@@ -227,8 +225,7 @@ const StudentsPage: React.FC = () => {
       setIsDeleteModalOpen(false);
       setSelectedStudent(null);
     } catch (err) {
-      console.log("Failed to delete student", err);
-      toast.error('Failed to delete student');
+      console.error('Delete student failed:', err);
     } finally {
       setDeleteLoading(false);
     }
@@ -316,7 +313,7 @@ const StudentsPage: React.FC = () => {
       window.URL.revokeObjectURL(url);
       toast.success('Template downloaded');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to download template');
+      console.error('Download template failed:', err);
     }
   };
 
@@ -330,7 +327,7 @@ const StudentsPage: React.FC = () => {
       toast.success(`Import completed. Created: ${created}, Failed: ${failed}`);
       if (created > 0) await fetchStudents();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to import CSV');
+      console.error('Import CSV failed:', err);
     } finally {
       setImportLoading(false);
     }
@@ -669,18 +666,6 @@ const StudentsPage: React.FC = () => {
           result={importResult}
         />
       </div>
-      
-      {/* Toast Container for notifications */}
-      <ToastContainer 
-        position="top-right" 
-        autoClose={3000} 
-        hideProgressBar={false} 
-        newestOnTop 
-        closeOnClick 
-        pauseOnFocusLoss 
-        draggable 
-        pauseOnHover 
-      />
     </DashboardLayout>
   );
 };

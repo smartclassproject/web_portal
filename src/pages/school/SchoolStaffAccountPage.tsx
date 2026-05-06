@@ -3,7 +3,6 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import { getProfile, patchProfile, changePassword, uploadProfilePhoto } from '../../services/authProfileService';
 import { publicUploadUrl } from '../../utils/publicUploadUrl';
 import { toast } from 'react-toastify';
-import { ToastContainer } from 'react-toastify';
 
 const SchoolStaffAccountPage: React.FC = () => {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -212,7 +211,6 @@ const SchoolStaffAccountPage: React.FC = () => {
           </button>
         </section>
       </div>
-      <ToastContainer position="top-right" autoClose={3000} />
     </DashboardLayout>
   );
 };

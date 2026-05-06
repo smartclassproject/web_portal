@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Modal from '../../components/ui/Modal';
@@ -326,7 +326,7 @@ const FeesPage: React.FC = () => {
       setBulkPreview(null);
       await loadData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Bulk update failed');
+      console.error('Bulk fee update failed:', err);
     } finally {
       setBulkApplying(false);
     }
@@ -334,7 +334,6 @@ const FeesPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <ToastContainer position="top-right" autoClose={2500} />
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">School fees</h1>

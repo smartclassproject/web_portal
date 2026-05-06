@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { getSchoolInquiries, replyToInquiry, updateInquiryStatus } from '../../services/inquiryService';
@@ -130,7 +130,6 @@ const InquiriesPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <ToastContainer position="top-right" autoClose={2500} />
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Inquiries</h1>

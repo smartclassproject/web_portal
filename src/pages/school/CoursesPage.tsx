@@ -39,7 +39,6 @@ const CoursesPage: React.FC = () => {
       setTotalPages(response.totalPages || 1);
     } catch (error) {
       console.error('Error fetching courses:', error);
-      toast.error('Failed to fetch courses. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -51,7 +50,6 @@ const CoursesPage: React.FC = () => {
       setMajors(response.data || []);
     } catch (error) {
       console.error('Error fetching majors:', error);
-      toast.error('Failed to fetch majors. Please try again.');
     }
   };
 
@@ -70,7 +68,6 @@ const CoursesPage: React.FC = () => {
       setDeletingCourse(null);
     } catch (error) {
       console.error('Error deleting course:', error);
-      toast.error('Failed to delete course. Please try again.');
     } finally {
       setIsDeleting(null);
     }
@@ -97,7 +94,6 @@ const CoursesPage: React.FC = () => {
       setEditingCourse(null);
     } catch (error) {
       console.error('Error updating course:', error);
-      toast.error('Failed to update course. Please try again.');
     }
   };
 
@@ -248,7 +244,6 @@ const CoursesPage: React.FC = () => {
               toast.success('Course created successfully!');
             } catch (error) {
               console.error('Error creating course:', error);
-              toast.error('Failed to create course. Please try again.');
             }
           }}
           majors={majors}
