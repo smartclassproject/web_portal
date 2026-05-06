@@ -9,9 +9,13 @@ import {
   parse,
   startOfWeek,
   getDay,
-  isSameDay,
   addDays,
   subDays,
+  eachDayOfInterval,
+  startOfDay,
+  endOfDay,
+  max,
+  min,
 } from "date-fns";
 import { enUS } from "date-fns/locale/en-US";
 import "react-big-calendar/lib/css/react-big-calendar.css";
@@ -81,56 +85,93 @@ interface SlotInfo {
   action: "select" | "click" | "doubleClick";
 }
 
-// Convert schedules to calendar events
+/** Weekday name from API → JS getDay() (0 = Sunday … 6 = Saturday) */
+const DAY_NAME_TO_DOW: Record<string, number> = {
+  Sunday: 0,
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+};
+
+/** Offset from Monday (weekStartsOn: 1) for placing events on the calendar */
+const DAY_OFFSET_FROM_MONDAY: Record<string, number> = {
+  Monday: 0,
+  Tuesday: 1,
+  Wednesday: 2,
+  Thursday: 3,
+  Friday: 4,
+  Saturday: 5,
+  Sunday: 6,
+};
+
+/** True if this weekly session occurs on at least one calendar day in the intersection of the UI period and the schedule's date range */
+const weeklySessionOccursInPeriod = (
+  session: WeeklySession,
+  periodStart: Date,
+  periodEnd: Date,
+  scheduleStart: Date,
+  scheduleEnd: Date
+): boolean => {
+  const dow = DAY_NAME_TO_DOW[session.day];
+  if (dow === undefined) return false;
+
+  const overlapStart = max([
+    startOfDay(periodStart),
+    startOfDay(scheduleStart),
+  ]);
+  const overlapEnd = min([endOfDay(periodEnd), endOfDay(scheduleEnd)]);
+  if (overlapStart > overlapEnd) return false;
+
+  return eachDayOfInterval({ start: overlapStart, end: overlapEnd }).some(
+    (d) => d.getDay() === dow
+  );
+};
+
+// Convert schedules to calendar events for the week containing anchorDate
 const getCalendarEvents = (
   schedules: Schedule[],
   courses: Course[],
-  teachers: Teacher[]
+  _teachers: Teacher[],
+  anchorDate: Date
 ) => {
   const events: any[] = [];
+  const weekMonday = startOfWeek(anchorDate, { weekStartsOn: 1 });
 
-  schedules &&
-    schedules.forEach((schedule) => {
-      const courseName = getCourseName(courses, schedule.courseId);
-      // const teacherName = getTeacherName(teachers, schedule.teacherId);
+  schedules?.forEach((schedule) => {
+    const courseName = getCourseName(courses, schedule.courseId);
+    const sessions = schedule.weeklySessions || [];
 
-      schedule.weeklySessions.forEach((session, sessionIndex) => {
-        const today = new Date();
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
+    sessions.forEach((session, sessionIndex) => {
+      const offset = DAY_OFFSET_FROM_MONDAY[session.day];
+      if (offset === undefined) return;
 
-        const dayMap = {
-          Monday: 1,
-          Tuesday: 2,
-          Wednesday: 3,
-          Thursday: 4,
-          Friday: 5,
-        };
-        const dayOffset = dayMap[session.day as keyof typeof dayMap] || 1;
+      const eventDate = addDays(weekMonday, offset);
+      const dayStart = startOfDay(eventDate);
+      const schedStart = startOfDay(new Date(schedule.startDate));
+      const schedEnd = startOfDay(new Date(schedule.endDate));
+      if (dayStart < schedStart || dayStart > schedEnd) return;
 
-        const eventDate = new Date(startOfWeek);
-        eventDate.setDate(startOfWeek.getDate() + dayOffset - 1);
+      const [startHour, startMinute] = session.startTime.split(":").map(Number);
+      const [endHour, endMinute] = session.endTime.split(":").map(Number);
 
-        const [startHour, startMinute] = session.startTime
-          .split(":")
-          .map(Number);
-        const [endHour, endMinute] = session.endTime.split(":").map(Number);
+      const start = new Date(eventDate);
+      start.setHours(startHour, startMinute, 0, 0);
 
-        const start = new Date(eventDate);
-        start.setHours(startHour, startMinute, 0);
+      const end = new Date(eventDate);
+      end.setHours(endHour, endMinute, 0, 0);
 
-        const end = new Date(eventDate);
-        end.setHours(endHour, endMinute, 0);
-
-        events.push({
-          id: `${schedule._id}-${sessionIndex}`,
-          title: `${courseName} - ${schedule.classroom}`,
-          start,
-          end,
-          resource: { ...schedule, session },
-        });
+      events.push({
+        id: `${schedule._id}-${sessionIndex}`,
+        title: `${courseName} - ${schedule.classroom}`,
+        start,
+        end,
+        resource: { ...schedule, session },
       });
     });
+  });
 
   return events;
 };
@@ -152,30 +193,6 @@ const getDayName = (date: Date): string => {
 // Helper function to format time
 const formatTime = (date: Date): string => {
   return format(date, "HH:mm");
-};
-
-// Helper function to get schedule date from day name
-const getScheduleDate = (session: WeeklySession): Date => {
-  const today = new Date();
-  const dayMap = {
-    Monday: 1,
-    Tuesday: 2,
-    Wednesday: 3,
-    Thursday: 4,
-    Friday: 5,
-    Saturday: 6,
-    Sunday: 0,
-  };
-  const currentDay = today.getDay();
-  const targetDay = dayMap[session.day as keyof typeof dayMap] || 1;
-
-  // Calculate days to add to get to the target day
-  let daysToAdd = targetDay - currentDay;
-  if (daysToAdd <= 0) daysToAdd += 7; // If target day is this week but already passed, go to next week
-
-  const scheduleDate = new Date(today);
-  scheduleDate.setDate(today.getDate() + daysToAdd);
-  return scheduleDate;
 };
 
 const SchedulesPage: React.FC = () => {
@@ -294,22 +311,38 @@ const SchedulesPage: React.FC = () => {
 
       if (!matchesSearch) return false;
 
-      // Filter by time selection - check if any weekly session falls within the selected period
-      const hasSessionInPeriod = schedule.weeklySessions.some((session) => {
-        const sessionDate = getScheduleDate(session);
+      const sessions = schedule.weeklySessions || [];
+      const scheduleStart = new Date(schedule.startDate);
+      const scheduleEnd = new Date(schedule.endDate);
 
+      const hasSessionInPeriod = sessions.some((session) => {
         switch (timeView) {
           case "day":
-            return isSameDay(sessionDate, selectedDate);
+            return weeklySessionOccursInPeriod(
+              session,
+              selectedDate,
+              selectedDate,
+              scheduleStart,
+              scheduleEnd
+            );
           case "week": {
-            const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 }); // Monday
-            const weekEnd = new Date(weekStart);
-            weekEnd.setDate(weekStart.getDate() + 6);
-            return sessionDate >= weekStart && sessionDate <= weekEnd;
+            const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+            const weekEnd = addDays(weekStart, 6);
+            return weeklySessionOccursInPeriod(
+              session,
+              weekStart,
+              weekEnd,
+              scheduleStart,
+              scheduleEnd
+            );
           }
           case "custom":
-            return (
-              sessionDate >= customStartDate && sessionDate <= customEndDate
+            return weeklySessionOccursInPeriod(
+              session,
+              customStartDate,
+              customEndDate,
+              scheduleStart,
+              scheduleEnd
             );
           default:
             return true;
@@ -374,7 +407,7 @@ const SchedulesPage: React.FC = () => {
 
     // Flatten weekly sessions for PDF display
     const pdfData = filtered.flatMap((schedule) =>
-      schedule.weeklySessions.map((session) => [
+      (schedule.weeklySessions || []).map((session) => [
         getCourseName(courses, schedule.courseId),
         schedule.classroom,
         getTeacherName(teachers, schedule.teacherId),
@@ -840,7 +873,7 @@ const SchedulesPage: React.FC = () => {
                   <tbody>
                     {filtered &&
                       filtered.map((schedule) =>
-                        schedule.weeklySessions.map((session, sessionIndex) => (
+                        (schedule.weeklySessions || []).map((session, sessionIndex) => (
                           <tr
                             key={`${schedule._id}-${sessionIndex}`}
                             className="group border-b last:border-b-0 border-gray-100 hover:bg-blue-50 transition"
@@ -899,7 +932,14 @@ const SchedulesPage: React.FC = () => {
           <div className="bg-white rounded-xl shadow-md p-6">
             <Calendar
               localizer={localizer}
-              events={getCalendarEvents(schedules, courses, teachers)}
+              date={selectedDate}
+              onNavigate={(newDate) => setSelectedDate(newDate)}
+              events={getCalendarEvents(
+                schedules,
+                courses,
+                teachers,
+                selectedDate
+              )}
               startAccessor="start"
               endAccessor="end"
               style={{ height: 600 }}
