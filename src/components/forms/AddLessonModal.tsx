@@ -1,6 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
-import type { Lesson, Course, LessonMaterial } from '../../types';
+import type { Lesson, Course, LessonMaterial, LessonMaterialFileType } from '../../types';
+import { toast } from 'react-toastify';
+import { uploadFileAsset } from '../../services/uploadService';
+
+const LESSON_MATERIAL_TYPES: LessonMaterialFileType[] = [
+  'pdf',
+  'ppt',
+  'pptx',
+  'video',
+  'image',
+  'document',
+  'other',
+  'link',
+];
+
+function normalizeLessonMaterialType(t: string | undefined): LessonMaterialFileType {
+  if (t && LESSON_MATERIAL_TYPES.includes(t as LessonMaterialFileType)) {
+    return t as LessonMaterialFileType;
+  }
+  return 'link';
+}
+
+function inferFileTypeFromFileName(fileName: string): LessonMaterialFileType {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  if (ext === 'pdf') return 'pdf';
+  if (ext === 'ppt') return 'ppt';
+  if (ext === 'pptx') return 'pptx';
+  if (['mp4', 'webm', 'mov', 'mkv', 'avi', 'm4v'].includes(ext)) return 'video';
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'heic'].includes(ext)) return 'image';
+  if (['doc', 'docx', 'txt', 'rtf', 'odt'].includes(ext)) return 'document';
+  return 'other';
+}
+
+function normalizeHttpUrl(raw: string): string {
+  const t = raw.trim();
+  if (!t) return '';
+  if (/^https?:\/\//i.test(t)) return t;
+  return `https://${t}`;
+}
 
 interface AddLessonModalProps {
   isOpen: boolean;
@@ -26,7 +64,7 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
   initialData,
   courses,
   isEdit = false,
-  loading = false
+  loading = false,
 }) => {
   const [formData, setFormData] = useState({
     courseId: '',
@@ -34,10 +72,26 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
     description: '',
     lessonDate: '',
     materials: [] as LessonMaterial[],
-    isPublished: false
+    isPublished: false,
   });
-  const [newMaterial, setNewMaterial] = useState({ name: '', url: '', type: 'link' as const });
+
+  const [draftName, setDraftName] = useState('');
+  const [draftFileType, setDraftFileType] = useState<LessonMaterialFileType>('document');
+  const [draftLinkUrl, setDraftLinkUrl] = useState('');
+  const [draftSelectedFile, setDraftSelectedFile] = useState<File | null>(null);
+  const [draftRemoteMeta, setDraftRemoteMeta] = useState({ fileName: '', fileSize: 0, type: 'document' as LessonMaterialFileType });
+  const [isUploadingDraft, setIsUploadingDraft] = useState(false);
+  const [draftError, setDraftError] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const resetDraft = () => {
+    setDraftName('');
+    setDraftFileType('document' as LessonMaterialFileType);
+    setDraftLinkUrl('');
+    setDraftSelectedFile(null);
+    setDraftRemoteMeta({ fileName: '', fileSize: 0, type: 'document' });
+    setDraftError('');
+  };
 
   useEffect(() => {
     if (initialData && isEdit) {
@@ -46,8 +100,14 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
         title: initialData.title,
         description: initialData.description || '',
         lessonDate: initialData.lessonDate.split('T')[0],
-        materials: initialData.materials || [],
-        isPublished: initialData.isPublished
+        materials: (initialData.materials || []).map((m) => ({
+          name: m.name,
+          url: m.url,
+          type: normalizeLessonMaterialType(m.type),
+          fileName: m.fileName,
+          fileSize: m.fileSize,
+        })),
+        isPublished: initialData.isPublished,
       });
     }
   }, [initialData, isEdit]);
@@ -56,30 +116,109 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
+      setFormData((prev) => ({ ...prev, [name]: checked }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: '' }));
     }
   };
 
-  const handleAddMaterial = () => {
-    if (newMaterial.name && newMaterial.url) {
-      setFormData({
-        ...formData,
-        materials: [...formData.materials, newMaterial]
-      });
-      setNewMaterial({ name: '', url: '', type: 'link' });
+  const handleDraftFileTypeSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const next = e.target.value as LessonMaterialFileType;
+    setDraftFileType(next);
+    if (next === 'link') {
+      setDraftSelectedFile(null);
+      setDraftRemoteMeta({ fileName: '', fileSize: 0, type: 'document' });
+    } else {
+      setDraftLinkUrl('');
     }
+    setDraftError('');
+  };
+
+  const handleDraftChooseFile = (file?: File | null) => {
+    if (!file || draftFileType === 'link') return;
+    const detected = inferFileTypeFromFileName(file.name);
+    setDraftSelectedFile(file);
+    setDraftRemoteMeta({
+      fileName: file.name,
+      fileSize: Number(file.size || 0),
+      type: detected,
+    });
+    setDraftFileType(detected);
+    setDraftError('');
+  };
+
+  const handleAddMaterial = async () => {
+    setDraftError('');
+    const name = draftName.trim();
+    if (!name) {
+      setDraftError('Material name is required');
+      return;
+    }
+
+    if (draftFileType === 'link') {
+      const url = normalizeHttpUrl(draftLinkUrl);
+      if (!draftLinkUrl.trim()) {
+        setDraftError('Enter the link URL');
+        return;
+      }
+      if (!/^https?:\/\/.+/i.test(url)) {
+        setDraftError('Enter a valid http(s) URL');
+        return;
+      }
+      setFormData((prev) => ({
+        ...prev,
+        materials: [...prev.materials, { name, url, type: 'link' }],
+      }));
+      resetDraft();
+      return;
+    }
+
+    let url = '';
+    let type = draftRemoteMeta.type || draftFileType;
+    let fileName = draftRemoteMeta.fileName || undefined;
+    let fileSize = draftRemoteMeta.fileSize || undefined;
+
+    if (draftSelectedFile) {
+      try {
+        setIsUploadingDraft(true);
+        const res = await uploadFileAsset('study_material', draftSelectedFile);
+        const data = res?.data || {};
+        if (!data.url) throw new Error('Upload did not return file URL');
+        const fname = (data.originalName as string) || draftSelectedFile.name;
+        url = String(data.url);
+        type = inferFileTypeFromFileName(fname);
+        fileName = fname;
+        fileSize = Number(data.sizeBytes || draftSelectedFile.size || 0) || undefined;
+      } catch (error: unknown) {
+        const err = error as { response?: { data?: { message?: string } }; message?: string };
+        toast.error(err.response?.data?.message || err.message || 'Failed to upload file');
+        setIsUploadingDraft(false);
+        return;
+      } finally {
+        setIsUploadingDraft(false);
+      }
+    }
+
+    if (!url) {
+      setDraftError('Choose a file to upload');
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      materials: [...prev.materials, { name, url, type, fileName, fileSize }],
+    }));
+    resetDraft();
   };
 
   const handleRemoveMaterial = (index: number) => {
-    setFormData({
-      ...formData,
-      materials: formData.materials.filter((_, i) => i !== index)
-    });
+    setFormData((prev) => ({
+      ...prev,
+      materials: prev.materials.filter((_, i) => i !== index),
+    }));
   };
 
   const handleClose = () => {
@@ -90,9 +229,9 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
         description: '',
         lessonDate: '',
         materials: [],
-        isPublished: false
+        isPublished: false,
       });
-      setNewMaterial({ name: '', url: '', type: 'link' });
+      resetDraft();
       setErrors({});
     }
     onClose();
@@ -116,7 +255,7 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
         description: formData.description.trim() || undefined,
         lessonDate: formData.lessonDate,
         materials: formData.materials.length > 0 ? formData.materials : undefined,
-        isPublished: formData.isPublished
+        isPublished: formData.isPublished,
       });
       if (!loading) {
         setFormData({
@@ -125,16 +264,18 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
           description: '',
           lessonDate: '',
           materials: [],
-          isPublished: false
+          isPublished: false,
         });
-        setNewMaterial({ name: '', url: '', type: 'link' });
+        resetDraft();
         setErrors({});
       }
     }
   };
 
+  const isLinkMode = draftFileType === 'link';
+
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title={isEdit ? "Edit Chapter" : "Add New Chapter"} size="lg">
+    <Modal isOpen={isOpen} onClose={handleClose} title={isEdit ? 'Edit Chapter' : 'Add New Chapter'} size="lg">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label htmlFor="courseId" className="block text-sm font-medium text-gray-700 mb-2">Course *</label>
@@ -146,7 +287,7 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.courseId ? 'border-red-500' : 'border-gray-300'}`}
           >
             <option value="">Select a course</option>
-            {courses.map(course => (
+            {courses.map((course) => (
               <option key={course._id} value={course._id}>{course.name}</option>
             ))}
           </select>
@@ -187,56 +328,98 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
           />
           {errors.lessonDate && <p className="mt-1 text-sm text-red-600">{errors.lessonDate}</p>}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Materials</label>
-          <div className="space-y-2 mb-2">
+
+        <div className="border border-gray-200 rounded-lg p-4 space-y-4 bg-gray-50/50">
+          <label className="block text-sm font-medium text-gray-700">Chapter materials</label>
+          <div className="space-y-2">
             {formData.materials.map((material, index) => (
-              <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                <span className="flex-1 text-sm">{material.name}</span>
+              <div key={`${material.url}-${index}`} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-100">
+                <span className="flex-1 text-sm">
+                  <span className="font-medium text-gray-900">{material.name}</span>
+                  <span className="text-gray-400 mx-1">·</span>
+                  <span className="text-gray-500 uppercase text-xs">{material.type}</span>
+                </span>
+                <a
+                  href={material.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:underline shrink-0"
+                >
+                  Open
+                </a>
                 <button
                   type="button"
                   onClick={() => handleRemoveMaterial(index)}
-                  className="text-red-600 hover:text-red-800 text-sm"
+                  className="text-red-600 hover:text-red-800 text-sm shrink-0"
                 >
                   Remove
                 </button>
               </div>
             ))}
           </div>
-          <div className="flex gap-2">
+
+          <div className="space-y-3 pt-2 border-t border-gray-200">
+            <p className="text-xs text-gray-500">Add a file (upload) or an external link — same options as study materials.</p>
             <input
               type="text"
-              placeholder="Material name"
-              value={newMaterial.name}
-              onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })}
-              className="flex-1 border border-gray-300 rounded-md px-3 py-2"
-            />
-            <input
-              type="url"
-              placeholder="URL"
-              value={newMaterial.url}
-              onChange={(e) => setNewMaterial({ ...newMaterial, url: e.target.value })}
-              className="flex-1 border border-gray-300 rounded-md px-3 py-2"
+              placeholder="Material name *"
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
             />
             <select
-              value={newMaterial.type}
-              onChange={(e) => setNewMaterial({ ...newMaterial, type: e.target.value as any })}
-              className="border border-gray-300 rounded-md px-3 py-2"
+              value={draftFileType}
+              onChange={handleDraftFileTypeSelect}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
             >
-              <option value="link">Link</option>
               <option value="pdf">PDF</option>
+              <option value="ppt">PowerPoint (PPT)</option>
+              <option value="pptx">PowerPoint (PPTX)</option>
               <option value="video">Video</option>
+              <option value="image">Image</option>
               <option value="document">Document</option>
+              <option value="other">Other</option>
+              <option value="link">External link</option>
             </select>
+
+            {isLinkMode ? (
+              <input
+                type="text"
+                placeholder="https://…"
+                value={draftLinkUrl}
+                onChange={(e) => setDraftLinkUrl(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              />
+            ) : (
+              <div>
+                <input
+                  type="file"
+                  onChange={(e) => handleDraftChooseFile(e.target.files?.[0])}
+                  disabled={loading || isUploadingDraft}
+                  className="w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-white file:text-sm"
+                />
+                {draftSelectedFile ? (
+                  <p className="mt-1 text-xs text-green-700">
+                    {draftRemoteMeta.fileName || draftSelectedFile?.name || 'Attachment ready'}
+                    {draftRemoteMeta.fileSize ? ` · ${(draftRemoteMeta.fileSize / 1024).toFixed(1)} KB` : ''}
+                  </p>
+                ) : null}
+              </div>
+            )}
+
+            {draftError ? <p className="text-sm text-red-600">{draftError}</p> : null}
+
             <button
               type="button"
-              onClick={handleAddMaterial}
-              className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+              onClick={() => void handleAddMaterial()}
+              disabled={loading || isUploadingDraft}
+              className="w-full sm:w-auto px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm font-medium disabled:opacity-50"
             >
-              Add
+              {isUploadingDraft ? 'Uploading…' : 'Add to chapter'}
             </button>
           </div>
         </div>
+
         <div>
           <label className="flex items-center">
             <input
@@ -260,12 +443,12 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || isUploadingDraft}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {loading ? (
               <>
-                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                 {isEdit ? 'Updating...' : 'Creating...'}
               </>
             ) : (

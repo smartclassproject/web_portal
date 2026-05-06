@@ -317,8 +317,20 @@ export interface Lesson {
   updatedAt?: string;
 }
 
+export type LessonMaterialFileType =
+  | 'pdf'
+  | 'ppt'
+  | 'pptx'
+  | 'video'
+  | 'image'
+  | 'document'
+  | 'other'
+  | 'link';
+
 export interface LessonMaterial {
   name: string;
   url: string;
-  type: 'pdf' | 'video' | 'link' | 'document';
+  type: LessonMaterialFileType;
+  fileName?: string;
+  fileSize?: number;
 }
