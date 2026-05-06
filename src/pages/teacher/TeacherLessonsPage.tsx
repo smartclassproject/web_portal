@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import AddLessonModal from '../../components/forms/AddLessonModal';
-import { getLessons, createLesson, updateLesson, deleteLesson } from '../../services/lessonService';
+import { getLessons, getLessonById, createLesson, updateLesson, deleteLesson } from '../../services/lessonService';
 import { getSchoolCourses } from '../../services/courseService';
 import { toast } from 'react-toastify';
 import type { Lesson, Course, LessonMaterial } from '../../types';
@@ -81,6 +81,16 @@ const TeacherLessonsPage: React.FC = () => {
     } finally {
       setSubmitLoading(false);
     }
+  };
+
+  const openChapterForEdit = async (lesson: Lesson) => {
+    try {
+      const full = await getLessonById(lesson._id);
+      setSelectedLesson(full ?? lesson);
+    } catch {
+      setSelectedLesson(lesson);
+    }
+    setIsModalOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -195,10 +205,8 @@ const TeacherLessonsPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <button
-                            onClick={() => {
-                              setSelectedLesson(lesson);
-                              setIsModalOpen(true);
-                            }}
+                            type="button"
+                            onClick={() => void openChapterForEdit(lesson)}
                             className="text-blue-600 hover:text-blue-900 mr-3"
                           >
                             Edit
